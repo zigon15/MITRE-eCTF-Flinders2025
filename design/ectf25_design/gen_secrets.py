@@ -11,6 +11,7 @@ Copyright: Copyright (c) 2025 The MITRE Corporation
 """
 
 import argparse
+import base64
 import json
 from pathlib import Path
 import random
@@ -40,25 +41,43 @@ def gen_secrets(channels: list[int]) -> bytes:
     if len(channels) > 255:
         raise ValueError("The number of channels must not exceed 255!!")
 
-
     # Create the secrets object
     # You can change this to generate any secret material
     # The secrets file will never be shared with attackers
 
-    # Generate secrets
+    # Generate subscription key for KDF
+    # - Random random 128 bit
+    subscription_kdf_key = random.getrandbits(128).to_bytes(16, byteorder="little")
+
+    # Generate channel secrets
     # - Random random 128 bit keys for each channel
-    keys = [random.getrandbits(128).to_bytes(16, byteorder="little") for _ in range(len(channels))]
-    logger.debug(f"Generated {len(channels)} Random Channel Keys")
+    channel_keys = [random.getrandbits(128).to_bytes(16, byteorder="little") for _ in range(len(channels))]
+
+    # Print secrets for debugging
+    logger.debug(f"Generated {len(channels)} Random Channel Keys for Channels {channels}")
+    channel_key_pairs = [
+        f"{{Channel: {channel}, Key: '{base64.b64encode(key).decode('utf-8')}'}}" 
+        for channel, key in zip(channels, channel_keys)
+    ]
+    logger.debug(
+        f"Secrets: {{"
+            f"Subscription KDF Key: '{base64.b64encode(subscription_kdf_key).decode('utf-8')}', "  
+            f"Channel Secrets: [{', '.join(channel_key_pairs)}]"
+        f"}}"
+    )
+
 
     # Pack the data
-    # [0]: Number of channels (8-bit)
-    # [1 ... Num Channels]: Channels (8-bit each)
-    # [1 + Num Channels ...]: Keys for each channel (16 bytes each)
+    # [0]: Subscription KDF initalization vector key
+    # [16]: Number of channels (8-bit)
+    # [16 ... Num Channels]: Channels (8-bit each)
+    # [16 + Num Channels ...]: Keys for each channel (16 bytes each)
     secrets = struct.pack(
-        f"<B{len(channels)}B{len(channels) * 16}s",
-        len(channels),  # Number of channels (8-bit)
-        *channels,      # Channels (8-bit each)
-        b"".join(keys)  # Concatenate all keys as raw bytes
+        f"<{16}sB{len(channels)}B{len(channels) * 16}s",
+        subscription_kdf_key,    # 16 byte subscription IV key
+        len(channels),          # Number of channels (8-bit)
+        *channels,              # Channels (8-bit each)
+        b"".join(channel_keys)  # Concatenate all keys as raw bytes
     )
     return secrets
 

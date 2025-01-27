@@ -1,1 +1,1 @@
-python3 ../design/ectf25_design/gen_secrets.py ../secrets/secrets.bin 1 3 4 --force
+python3 ../design/ectf25_design/gen_secrets.py ../output/secrets.bin 1 3 4 --force
