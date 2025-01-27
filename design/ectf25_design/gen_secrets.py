@@ -13,6 +13,8 @@ Copyright: Copyright (c) 2025 The MITRE Corporation
 import argparse
 import json
 from pathlib import Path
+import random
+import struct
 
 from loguru import logger
 
@@ -29,21 +31,36 @@ def gen_secrets(channels: list[int]) -> bytes:
 
     :returns: Contents of the secrets file
     """
-    # TODO: Update this function to generate any system-wide secrets needed by
-    #   your design
+
+    # Validate that channels fit in unsigned 8-bit integer range
+    if any(channel < 0 or channel > 255 for channel in channels):
+        raise ValueError("Channel IDs must be in the range [0, 255]!!")
+
+    # Validate that the number of channels fits in an unsigned 8-bit integer
+    if len(channels) > 255:
+        raise ValueError("The number of channels must not exceed 255!!")
+
 
     # Create the secrets object
     # You can change this to generate any secret material
     # The secrets file will never be shared with attackers
-    secrets = {
-        "channels": channels,
-        "some_secrets": "EXAMPLE",
-    }
 
-    # NOTE: if you choose to use JSON for your file type, you will not be able to
-    # store binary data, and must either use a different file type or encode the
-    # binary data to hex, base64, or another type of ASCII-only encoding
-    return json.dumps(secrets).encode()
+    # Generate secrets
+    # - Random random 128 bit keys for each channel
+    keys = [random.getrandbits(128).to_bytes(16, byteorder="little") for _ in range(len(channels))]
+    logger.debug(f"Generated {len(channels)} Random Channel Keys")
+
+    # Pack the data
+    # [0]: Number of channels (8-bit)
+    # [1 ... Num Channels]: Channels (8-bit each)
+    # [1 + Num Channels ...]: Keys for each channel (16 bytes each)
+    secrets = struct.pack(
+        f"<B{len(channels)}B{len(channels) * 16}s",
+        len(channels),  # Number of channels (8-bit)
+        *channels,      # Channels (8-bit each)
+        b"".join(keys)  # Concatenate all keys as raw bytes
+    )
+    return secrets
 
 
 def parse_args():
