@@ -32,14 +32,17 @@ typedef enum {
     ERROR_MSG = 'E',      // 'E' - 0x45
 } msg_type_t;
 
-#pragma pack(push, 1) // Tells the compiler not to pad the struct members
+// Tells the compiler not to pad the struct members
+#pragma pack(push, 1) 
+
 typedef struct {
     char magic;    // Should be MSG_MAGIC
     char cmd;      // msg_type_t
     uint16_t len;
 } msg_header_t;
 
-#pragma pack(pop) // Tells the compiler to resume padding struct members
+// Tells the compiler to resume padding struct members
+#pragma pack(pop) 
 
 #define MSG_HEADER_SIZE sizeof(msg_header_t)
 
@@ -51,7 +54,7 @@ typedef struct {
  * 
  *  @return 0 on success. A negative value on error.
 */
-int write_hex(msg_type_t type, const void *buf, size_t len);
+int host_write_hex(msg_type_t type, const void *buf, size_t len);
 
 /** @brief Send a message to the host, expecting an ack after every 256 bytes.
  * 
@@ -61,7 +64,7 @@ int write_hex(msg_type_t type, const void *buf, size_t len);
  * 
  *  @return 0 on success. A negative value on failure.
 */
-int write_packet(msg_type_t type, const void *buf, uint16_t len);
+int host_write_packet(msg_type_t type, const void *buf, uint16_t len);
 
 /** @brief Reads a packet from console UART.
  * 
@@ -71,16 +74,16 @@ int write_packet(msg_type_t type, const void *buf, uint16_t len);
  * 
  *  @return 0 on success, a negative number on failure
 */
-int read_packet(msg_type_t* cmd, void *buf, uint16_t *len);
+int host_read_packet(msg_type_t* cmd, void *buf, uint16_t *len);
 
 // Macro definitions to print the specified format for error messages
-#define print_error(msg) write_packet(ERROR_MSG, msg, strlen(msg))
+#define host_print_error(msg) host_write_packet(ERROR_MSG, msg, strlen(msg))
 
 // Macro definitions to print the specified format for debug messages
-#define print_debug(msg) write_packet(DEBUG_MSG, msg, strlen(msg))
-#define print_hex_debug(msg, len) write_hex(DEBUG_MSG, msg, len)
+#define host_print_debug(msg) host_write_packet(DEBUG_MSG, msg, strlen(msg))
+#define host_print_hex_debug(msg, len) host_write_hex(DEBUG_MSG, msg, len)
 
 // Macro definitions to write ack message
-#define write_ack() write_packet(ACK_MSG, NULL, 0)
+#define host_write_ack() host_write_packet(ACK_MSG, NULL, 0)
 
 #endif

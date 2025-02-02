@@ -1,0 +1,1 @@
+make -r -j 8 DECODER_ID=2 PROJECT="Decoder"
