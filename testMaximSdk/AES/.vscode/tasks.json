@@ -12,6 +12,16 @@
             "problemMatcher": []
         },
         {
+            "label": "build-release",
+            "type": "shell",
+            "command": "make release DECODER_ID=1",
+            "osx":{
+                "command": "source ~/.zshrc && make -r -j 8 --output-sync=target --no-print-directory TARGET=${config:target} BOARD=${config:board} MAXIM_PATH=${config:MAXIM_PATH} MAKE=make PROJECT=${config:project_name}"
+            },
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
             "label": "clean",
             "type": "shell",
             "command": "make -j 8 clean --output-sync=target --no-print-directory TARGET=${config:target} BOARD=${config:board} MAXIM_PATH=${config:MAXIM_PATH} MAKE=make PROJECT=${config:project_name}",
@@ -40,7 +50,7 @@
                 "--se=\"build/${config:program_file}\"",
                 "--symbols=build/${config:symbol_file}",
                 "-x=\"${workspaceFolder}/.vscode/flash.gdb\"",
-                "--ex=\"flash_m4 ${config:OCD_path} ${config:M4_OCD_interface_file} ${config:M4_OCD_target_file}\"",
+                "--ex=\"flash_m4 ${config:OCD_path} ${config:M4_OCD_interface_file} ${config:M4_OCD_target_file} build/${config:symbol_file}\"",
                 "--batch"
             ],
             "group": "build",
@@ -56,7 +66,7 @@
                 "--se=\"build/${config:program_file}\"",
                 "--symbols=build/${config:symbol_file}",
                 "-x=\"${workspaceFolder}/.vscode/flash.gdb\"",                
-                "--ex=\"flash_m4_run ${config:OCD_path} ${config:M4_OCD_interface_file} ${config:M4_OCD_target_file}\"",
+                "--ex=\"flash_m4_run ${config:OCD_path} ${config:M4_OCD_interface_file} ${config:M4_OCD_target_file} build/${config:symbol_file}\"",
                 "--batch"
             ],
             "group": "build",
