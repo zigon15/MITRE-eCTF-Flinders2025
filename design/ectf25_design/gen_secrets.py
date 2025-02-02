@@ -19,6 +19,16 @@ import struct
 
 from loguru import logger
 
+# Length of each AES key in bits and bytes notation
+AES_KEY_LEN_BIT = 256
+AES_KEY_LEN_BYTE = AES_KEY_LEN_BIT//8
+
+# Allowed channel number range (16b unsigned)
+MIN_CHANNEL = 0
+MAX_CHANNEL = 0xFFFF
+
+# Maximum number of channels allowed in a single deployment (16b unsigned)
+MAX_NUM_CHANNELS = 0xFFFF
 
 def gen_secrets(channels: list[int]) -> bytes:
     """Generate the contents secrets file
@@ -28,30 +38,39 @@ def gen_secrets(channels: list[int]) -> bytes:
 
     :param channels: List of channel numbers that will be valid in this deployment.
         Channel 0 is the emergency broadcast, which will always be valid and will
-        NOT be included in this list
+        NOT be included in this list. Each channel is a 16b number.
 
     :returns: Contents of the secrets file
     """
 
-    # Validate that channels fit in unsigned 8-bit integer range
-    if any(channel < 0 or channel > 255 for channel in channels):
-        raise ValueError("Channel IDs must be in the range [0, 255]!!")
+    # Validate that channels fit in required range
+    if any(channel < MIN_CHANNEL or channel > MAX_CHANNEL for channel in channels):
+        print(f"Channel IDs must be in the range [{MIN_CHANNEL}, {MAX_CHANNEL}]!!")
+        exit()
 
-    # Validate that the number of channels fits in an unsigned 8-bit integer
-    if len(channels) > 255:
-        raise ValueError("The number of channels must not exceed 255!!")
+    # Validate that the number of channels fit in required range
+    if len(channels) > MAX_NUM_CHANNELS:
+        print(f"The number of channels must not exceed {MAX_NUM_CHANNELS}!!")
+        exit()
 
     # Create the secrets object
     # You can change this to generate any secret material
     # The secrets file will never be shared with attackers
 
-    # Generate subscription key for KDF
-    # - Random random 128 bit
-    subscription_kdf_key = random.getrandbits(128).to_bytes(16, byteorder="little")
+    # Generate subscription and frame key for KDF
+    # - Random random 256 bit
+    subscription_kdf_key = random.getrandbits(AES_KEY_LEN_BIT).to_bytes(
+        AES_KEY_LEN_BYTE, byteorder="little"
+    )
+    frame_kdf_key = random.getrandbits(AES_KEY_LEN_BIT).to_bytes(
+        AES_KEY_LEN_BYTE, byteorder="little"
+    )
 
     # Generate channel secrets
-    # - Random random 128 bit keys for each channel
-    channel_keys = [random.getrandbits(128).to_bytes(16, byteorder="little") for _ in range(len(channels))]
+    # - Random random 256 bit keys for each channel
+    channel_keys = [random.getrandbits(AES_KEY_LEN_BIT).to_bytes(
+        AES_KEY_LEN_BYTE, byteorder="little"
+    ) for _ in range(len(channels))]
 
     # Print secrets for debugging
     logger.debug(f"Generated {len(channels)} Random Channel Keys for Channels {channels}")
@@ -61,23 +80,25 @@ def gen_secrets(channels: list[int]) -> bytes:
     ]
     logger.debug(
         f"Secrets: {{"
-            f"Subscription KDF Key: '{base64.b64encode(subscription_kdf_key).decode('utf-8')}', "  
+            f"Subscription KDF Key: '{base64.b64encode(subscription_kdf_key).decode('utf-8')}', "
+            f"Frame KDF Key: '{base64.b64encode(frame_kdf_key).decode('utf-8')}', "  
             f"Channel Secrets: [{', '.join(channel_key_pairs)}]"
         f"}}"
     )
 
-
     # Pack the data
-    # [0]: Subscription KDF initalization vector key
-    # [16]: Number of channels (8-bit)
-    # [16 ... Num Channels]: Channels (8-bit each)
-    # [16 + Num Channels ...]: Keys for each channel (16 bytes each)
+    # [0]: Subscription KDF key (256b)
+    # [32]: Frame KDF key (256b)
+    # [64]: Number of channels (16b)
+    # [66]: Channels (16b each)
+    # [66 + 2*NumChannels]: Keys for each channel (256b each)
     secrets = struct.pack(
-        f"<{16}sB{len(channels)}B{len(channels) * 16}s",
-        subscription_kdf_key,    # 16 byte subscription IV key
-        len(channels),          # Number of channels (8-bit)
-        *channels,              # Channels (8-bit each)
-        b"".join(channel_keys)  # Concatenate all keys as raw bytes
+        f"<32s32sH{len(channels)}H{len(channels) * 32}s",
+        subscription_kdf_key,   # Subscription KDF key (256b)
+        frame_kdf_key,          # Frame KDF key (256b)
+        len(channels),          # Number of channels (16b)
+        *channels,              # Channels (16b each)
+        b"".join(channel_keys)  # Concatenate all channel keys (256b each)
     )
     return secrets
 
