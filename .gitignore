@@ -1,0 +1,8 @@
+# Ignore global secrets folders
+output/*
+
+# Ignore all build directories
+**/build/**
+
+# Ignore draw.io backup files
+*.drawio.bkp
