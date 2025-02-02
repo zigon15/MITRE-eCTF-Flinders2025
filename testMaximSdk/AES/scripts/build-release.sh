@@ -1,0 +1,1 @@
+make -r -j 8 release DECODER_ID=1 PROJECT="AES_Release"

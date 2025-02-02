@@ -1,0 +1,1 @@
+make -r -j 8 PROJECT="AES"
