@@ -125,7 +125,7 @@ int main(void)
     printf("\n\nAES 192 bits Key Test");
     AES_encrypt(0, MXC_AES_192BITS);
     fail += AES_decrypt(0, MXC_AES_192BITS);
-    printf("\n\nAES 256 bits Key Test");
+    printf("\n\nAES 256 bits Key Test tYT");
     AES_encrypt(0, MXC_AES_256BITS);
     fail += AES_decrypt(0, MXC_AES_256BITS);
 
@@ -134,6 +134,6 @@ int main(void)
         return E_FAIL;
     }
 
-    printf("\nExample Succeeded\n");
+    printf("\nExample Succeeded XYZ\n");
     return E_NO_ERROR;
 }

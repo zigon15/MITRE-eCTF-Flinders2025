@@ -27,7 +27,10 @@
             "configFiles": ["interface/${config:M4_OCD_interface_file}", "target/${config:M4_OCD_target_file}"],
             "interface": "swd",
             "runToEntryPoint": "main",
-            "svdFile": "${config:MAXIM_PATH}/Libraries/CMSIS/Device/Maxim/${config:target}/Include/${config:target}.svd"
+            "svdFile": "${config:MAXIM_PATH}/Libraries/CMSIS/Device/Maxim/${config:target}/Include/${config:target}.svd",
+            "overrideLaunchCommands": [
+                "load ${workspaceFolder}/build/${config:symbol_file}"
+            ],
         },
         {
             "name": "GDB (Arm M4)",

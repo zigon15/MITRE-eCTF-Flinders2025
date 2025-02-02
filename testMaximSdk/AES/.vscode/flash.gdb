@@ -5,6 +5,7 @@ define flash_m4
     load
     compare-sections
     monitor reset halt
+    exit
 end
 
 define flash_m4_run
@@ -14,4 +15,5 @@ define flash_m4_run
     load
     compare-sections
     monitor resume
+    exit
 end
