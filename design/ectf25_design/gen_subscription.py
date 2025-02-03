@@ -12,7 +12,6 @@ Copyright: Copyright (c) 2025 The MITRE Corporation
 
 import argparse
 import base64
-import json
 from pathlib import Path
 import struct
 from cryptography.hazmat.primitives.cmac import CMAC
@@ -24,6 +23,8 @@ from loguru import logger
 # Length of each AES key in bits and bytes notation
 AES_KEY_LEN_BIT = 256
 AES_KEY_LEN_BYTE = AES_KEY_LEN_BIT//8
+
+SUBSCRIPTION_UPDATE_DATA_LEN = 34
 
 def parse_secrets(
     raw_secrets: bytes,   
@@ -104,7 +105,7 @@ def subscription_kdf(
 
     # Validate that the number of channels fit in required range
     if len(subscription_kdf_key) != AES_KEY_LEN_BYTE:
-        print(f"Bad subscription kdf key length, Expected {AES_KEY_LEN_BYTE} bytes!!")
+        logger.error(f"Bad subscription kdf key length, Expected {AES_KEY_LEN_BYTE} bytes!!")
         exit()
 
     # Max one block for key derivation!!
@@ -129,7 +130,7 @@ def subscription_kdf(
 
     # Ensure input bytes are one block length only for security!!
     if len(input_bytes) != AES_KEY_LEN_BYTE:
-        print("AES input bytes len must be one block len as no block chaining use!! Multiple blocks insecure with ECB!!")
+        logger.error("AES input bytes len must be one block len as no block chaining use!! Multiple blocks insecure with ECB!!")
         exit()
 
     # Perform AES encryption
@@ -178,7 +179,7 @@ def gen_subscription(
     # [9]: Time Stamp End (64b)
     # [17]: MIC (16 bytes)
     raw_data = struct.pack(
-        "<bIIb", 
+        "<BQQB", 
         17 + 16,
         start,
         end,
@@ -192,6 +193,10 @@ def gen_subscription(
 
     # Add on the MIC
     raw_data = raw_data + mac
+
+    if len(raw_data) != SUBSCRIPTION_UPDATE_DATA_LEN:
+        logger.error(f"Bad Subscription Update Length -> ({SUBSCRIPTION_UPDATE_DATA_LEN} != {len(raw_data)})!!")
+        exit()
 
     # Subscription update will be sent to the decoder with ectf25.tv.subscribe
     return raw_data
