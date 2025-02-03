@@ -60,7 +60,7 @@ void host_read_header(msg_header_t *hdr) {
  * 
  *  @return 0 on success. A negative value on error.
 */
-uint8_t host_read_ack() {
+uint8_t host_read_ack(void) {
     msg_header_t ack_buf = {0};
 
     host_read_header(&ack_buf);

@@ -1,5 +1,5 @@
-PROGRAM_FILE="Decoder.elf"
-SYMBOL_FILE="Decoder.elf"
+PROGRAM_FILE="decoder.elf"
+SYMBOL_FILE="decoder.elf"
 
 OCD_path="$MAXIM_PATH/Tools/OpenOCD"
 M4_OCD_interface_file="cmsis-dap.cfg"

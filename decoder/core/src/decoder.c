@@ -23,6 +23,7 @@
 #include "host_messaging.h"
 
 #include "simple_uart.h"
+#include "max_crypto.h"
 
 /**********************************************************
  ******************* PRIMITIVE TYPES **********************
@@ -286,15 +287,68 @@ void init() {
     ret = uart_init();
     if (ret < 0) {
         STATUS_LED_ERROR();
-        // if uart fails to initialize, do not continue to execute
+        
+        // If uart fails to initialize, do not continue to execute
         while (1);
+    }
+
+    // Initialize crypto to enable cryptographic operations
+    ret = crypto_init();
+    if(ret != 0){
+        STATUS_LED_ERROR();
+
+        // If crypto fails to initialize, do not continue to execute
+        while(1);
+    }
+}
+
+void cryptoTest(void){
+    int res;
+
+    uint8_t pPlainText[32] = {
+        0x12, 0x34, 0x56, 0x78,
+        0x9a, 0xbc, 0xde, 0xf0,
+        0xde, 0xad, 0xbe, 0xef,
+        0x0b, 0xad, 0xc0, 0xde,
+        0xfe, 0xed, 0xfa, 0xce,
+        0xab, 0xcd, 0xef, 0x01,
+        0x11, 0x22, 0x33, 0x44,
+        0x55, 0x66, 0x77, 0x88
+    };
+    uint8_t pCypherText[32];
+    memset(pCypherText, 0, 32);
+
+    uint8_t pKey[32] = {
+        0x60, 0x3f, 0xa8, 0x9b, 0x3d, 0x4c, 0xf1, 0x72,
+        0xb8, 0x57, 0x16, 0xda, 0x72, 0x5b, 0x96, 0x7f,
+        0x44, 0xa5, 0x8c, 0x13, 0xe9, 0x5f, 0x91, 0x1e,
+        0x9c, 0x67, 0x29, 0xbd, 0x86, 0x38, 0xd1, 0x5f
+    };
+
+    res = crypto_AES_ECB_encrypt(
+        pKey, pPlainText, pCypherText, 32
+    );
+    if(res != 0){
+        host_print_debug("crypto_AES_ECB_encrypt failed!!");
+    }
+
+    uint8_t pDecryptedText[32];
+    memset(pDecryptedText, 0, 32);
+    res = crypto_AES_ECB_decrypt(
+        pKey, pCypherText, pDecryptedText, 32
+    );
+    if(res != 0){
+        host_print_error("crypto_AES_ECB_decrypt failed!!");
+    }
+
+    if (memcmp(pPlainText, pDecryptedText, 32) != 0) {
+        host_print_debug("Crypto mismatch");
     }
 }
 
 /**********************************************************
  *********************** MAIN LOOP ************************
  **********************************************************/
-
 int main(void) {
     char output_buf[128] = {0};
     uint8_t uart_buf[100];
@@ -307,7 +361,7 @@ int main(void) {
 
     host_print_debug("Decoder Booted!\n");
 
-    // process commands forever
+    // Process commands forever
     while (1) {
         host_print_debug("Ready\n");
 
@@ -327,6 +381,7 @@ int main(void) {
         // Handle list command
         case LIST_MSG:
             STATUS_LED_CYAN();
+            cryptoTest();
             list_channels();
             break;
 

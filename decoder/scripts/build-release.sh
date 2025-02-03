@@ -1,1 +1,1 @@
-make -r -j 8 release DECODER_ID=1 PROJECT="Decoder_Release"
+make -r -j 8 release DECODER_ID=1 PROJECT="decoder_release"
