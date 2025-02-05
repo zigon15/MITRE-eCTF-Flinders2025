@@ -10,6 +10,7 @@ cortex-m = { version = "0.7.6", features = ["critical-section-single-core"] }
 cortex-m-rt = { version = "0.7.5" }
 # cortex-m-semihosting = "0.5"
 panic-halt = "1.0.0"
+volatile-register = "0.2.2"
 # cc = "1.0"
 
 [build-dependencies]

@@ -1,0 +1,1 @@
+/home/simon/MaximSDK//Tools/GNUTools/10.3/bin/arm-none-eabi-objdump --syms -C -h -w /home/simon/dev/MITRE-eCTF-Flinders2025/testRust/test/target/thumbv7em-none-eabi/debug/test

@@ -10,8 +10,28 @@
 //!
 //! The build script also sets the linker flags to tell it which link script to use.
 
+use std::{env, fs::File, io::Write, path::PathBuf};
+
 fn main() {
-    println!("cargo:rerun-if-changed=firmware.ld");
+        // Put `memory.x` in our output directory and ensure it's
+    // on the linker search path.
+    let out = &PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    File::create(out.join("memory.x"))
+        .unwrap()
+        .write_all(include_bytes!("memory.x"))
+        .unwrap();
+    println!("cargo:rustc-link-search={}", out.display());
+
+    // Set the linker script to the one provided by cortex-m-rt.
+    println!("cargo:rustc-link-arg=-Tlink.x");
+
+    // By default, Cargo will re-run a build script whenever
+    // any file in the project changes. By specifying `memory.x`
+    // here, we ensure the build script is only re-run when
+    // `memory.x` is changed.
+    // println!("cargo:rerun-if-changed=memory.x");
+
+    // println!("cargo:rerun-if-changed=./core/firmware.ld");
 
     // Specify linker arguments.
     // `--nmagic` is required if memory section addresses are not aligned to 0x10000,
@@ -20,5 +40,5 @@ fn main() {
     println!("cargo:rustc-link-arg=--nmagic");
 
     // Set the linker script to custom one for MAX78000 board
-    println!("cargo:rustc-link-arg=-T./core/firmware.ld");
+    // println!("cargo:rustc-link-arg=-T./core/firmware.ld");
 }
