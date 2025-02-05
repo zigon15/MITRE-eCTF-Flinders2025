@@ -1,0 +1,42 @@
+[package]
+authors = ["Simon"]
+edition = "2018"
+readme = "README.md"
+name = "test"
+version = "0.1.0"
+
+[dependencies]
+cortex-m = { version = "0.7.6", features = ["critical-section-single-core"] }
+cortex-m-rt = { version = "0.7.5" }
+# cortex-m-semihosting = "0.5"
+panic-halt = "1.0.0"
+# cc = "1.0"
+
+[build-dependencies]
+cc = "1.2.12"
+
+# Uncomment for the panic example.
+# panic-itm = "0.4.1"
+
+# Uncomment for the allocator example.
+# embedded-alloc = "0.6.0"
+
+# Uncomment for the device example.
+# Update `memory.x`, set target to `thumbv7em-none-eabihf` in `.cargo/config`,
+# and then use `cargo build --example device` to build it.
+# [dependencies.stm32f3]
+# features = ["stm32f303", "rt"]
+# version = "0.7.1"
+
+# this lets you use `cargo fix`!
+[[bin]]
+name = "test"
+test = false
+bench = false
+path = "core/src/main.rs"
+
+[profile.release]
+lto = true
+opt-level = "z"
+strip = true
+codegen-units = 1

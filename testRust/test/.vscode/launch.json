@@ -1,0 +1,53 @@
+{
+    "configurations": [
+        {
+            "name": "Debug (QEMU)",
+            "type": "cortex-debug",
+            "request": "launch",
+            "servertype": "qemu",
+            "cwd": "${workspaceRoot}",
+            "preLaunchTask": "Cargo Build (debug)",
+            "runToEntryPoint": "main",
+            // "executable": "./target/thumbv7em-none-eabi/debug/test",
+            /* Run `cargo build --example hello` and uncomment this line to run semi-hosting example */
+            "executable": "${workspaceFolder}/target/thumbv7em-none-eabi/debug/test",
+            "gdbPath": "${config:ARM_GCC_path}/bin/arm-none-eabi-gdb",
+            // "serverpath": "${config:OCD_path}/openocd",
+        },
+        {
+            "name": "Debug Arm (Cortex-debug)",
+            "cwd":"${workspaceRoot}",
+            "executable": "${workspaceFolder}/target/thumbv7em-none-eabi/debug/${config:program_file}",
+            "loadFiles": ["${workspaceFolder}/target/thumbv7em-none-eabi/debug/${config:program_file}"],
+            "symbolFiles": [{
+                "file": "${workspaceFolder}/target/thumbv7em-none-eabi/debug/${config:symbol_file}"
+            }],
+            "request": "launch",
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "linux": {
+                "gdbPath": "${config:ARM_GCC_path}/bin/arm-none-eabi-gdb",
+                "serverpath": "${config:OCD_path}/openocd",
+            },
+            "windows": {
+                "gdbPath": "${config:ARM_GCC_path}/bin/arm-none-eabi-gdb.exe",
+                "serverpath": "${config:OCD_path}/openocd.exe",
+            },
+            "osx": {
+                "gdbPath": "${config:ARM_GCC_path}/bin/arm-none-eabi-gdb",
+                "serverpath": "${config:OCD_path}/openocd",
+            },
+            "searchDir": ["${config:OCD_path}/scripts"],
+            "configFiles": ["interface/${config:M4_OCD_interface_file}", "target/${config:M4_OCD_target_file}"],
+            "interface": "swd",
+            "runToEntryPoint": "main",
+            "svdFile": "${config:MAXIM_PATH}/Libraries/CMSIS/Device/Maxim/${config:target}/Include/${config:target}.svd",
+            "overrideLaunchCommands": [
+                "load ${workspaceFolder}/target/thumbv7em-none-eabi/debug/${config:symbol_file}"
+            ],
+        },
+    ],
+    "env": {
+        // "PATH": "${config:ARM_GCC_path};${env:PATH}"
+    }
+}
