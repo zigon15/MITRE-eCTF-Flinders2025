@@ -167,21 +167,9 @@ export CMSIS_ROOT
 
 
 # Where to find source files for this project.
-VPATH += core/src
-
-# eCTF Crypto Example
-ifeq ($(CRYPTO_EXAMPLE), 1)
-VPATH += core/wolfssl/wolfcrypt/src
-endif
-
 VPATH := $(VPATH)
 
 # Where to find header files for this project
-IPATH += core/inc
-# eCTF Crypto Example
-ifeq ($(CRYPTO_EXAMPLE), 1)
-IPATH += core/wolfssl
-endif
 IPATH := $(IPATH)
 
 AUTOSEARCH ?= 1

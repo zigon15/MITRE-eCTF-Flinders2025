@@ -23,6 +23,7 @@
                 "gdbPath": "${config:ARM_GCC_path}/bin/arm-none-eabi-gdb",
                 "serverpath": "${config:OCD_path}/openocd",
             },
+            "preLaunchTask": "build",
             "searchDir": ["${config:OCD_path}/scripts"],
             "configFiles": ["interface/${config:M4_OCD_interface_file}", "target/${config:M4_OCD_target_file}"],
             "interface": "swd",

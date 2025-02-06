@@ -1,2 +1,3 @@
-make release
-python -m ectf25.utils.flash ../build/AES_Release.bin /dev/ttyACM0
+cd ../
+./scripts/build-release.sh
+python -m ectf25.utils.flash ./build/decoder_release.bin /dev/ttyACM0

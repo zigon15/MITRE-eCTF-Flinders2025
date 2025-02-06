@@ -23,7 +23,10 @@
 #include "host_messaging.h"
 
 #include "simple_uart.h"
-#include "max_crypto.h"
+#include "crypto.h"
+
+
+#include "crypto_test.h"
 
 /**********************************************************
  ******************* PRIMITIVE TYPES **********************
@@ -326,7 +329,8 @@ void cryptoTest(void){
     };
 
     res = crypto_AES_ECB_encrypt(
-        pKey, pPlainText, pCypherText, 32
+        pKey, MXC_AES_256BITS,
+        pPlainText, pCypherText, 32
     );
     if(res != 0){
         host_print_debug("crypto_AES_ECB_encrypt failed!!");
@@ -335,7 +339,8 @@ void cryptoTest(void){
     uint8_t pDecryptedText[32];
     memset(pDecryptedText, 0, 32);
     res = crypto_AES_ECB_decrypt(
-        pKey, pCypherText, pDecryptedText, 32
+        pKey, MXC_AES_256BITS,
+        pCypherText, pDecryptedText, 32
     );
     if(res != 0){
         host_print_error("crypto_AES_ECB_decrypt failed!!");
@@ -356,9 +361,23 @@ int main(void) {
     int result;
     uint16_t pkt_len;
 
-    // initialize the device
+    // Initialize the device
     init();
 
+    // Run crypto tests
+    if(crypto_test_AES_ECB() != 0){
+        printf("@ERROR crypto_test_AES_ECB failed!!\n\n");
+    }
+
+    if(crypto_test_AES_CTR() != 0){
+        printf("@ERROR crypto_test_AES_CTR failed!!\n\n");
+    }
+
+    if(crypto_test_CMAC() != 0){
+        printf("@ERROR crypto_test_CMAC failed!!\n\n");
+    }
+    while(1);
+    
     host_print_debug("Decoder Booted!\n");
 
     // Process commands forever
