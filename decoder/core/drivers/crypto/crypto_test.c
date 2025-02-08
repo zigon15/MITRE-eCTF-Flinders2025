@@ -1,14 +1,6 @@
 #include "crypto.h"
 #include <string.h>
 
-// Helper function to print 16-byte hex output
-void print_hex(const uint8_t *data, size_t len) {
-    for (size_t i = 0; i < len; i++) {
-        printf("%02x", data[i]);
-    }
-    printf("\n");
-}
-
 /** @brief Tests CMAC implementation
  *
  * @return 0 if all test pass, 1 if any test fails
@@ -50,12 +42,12 @@ int crypto_test_CMAC(void){
         fail = 1;
     } else {
         printf("-{I} Test 1 CMAC: ");
-        print_hex(cmac, 16);
+        crypto_print_hex(cmac, 16);
         if (memcmp(cmac, expected1, 16) == 0)
             printf("-{I} Test 1 PASSED\n");
         else {
             printf("-{E} Test 1 FAILED. Expected: ");
-            print_hex(expected1, 16);
+            crypto_print_hex(expected1, 16);
             fail = 1;
         }
     }
@@ -83,12 +75,12 @@ int crypto_test_CMAC(void){
         fail = 1;
     } else {
         printf("-{I} Test 2 CMAC: ");
-        print_hex(cmac, 16);
+        crypto_print_hex(cmac, 16);
         if (memcmp(cmac, expected2, 16) == 0)
             printf("-{I} Test 2 PASSED\n");
         else {
             printf("-{E} Test 2 FAILED. Expected: ");
-            print_hex(expected2, 16);
+            crypto_print_hex(expected2, 16);
             fail = 1;
         }
     }
@@ -120,12 +112,12 @@ int crypto_test_CMAC(void){
         fail = 1;
     } else {
         printf("-{I} Test 3 CMAC: ");
-        print_hex(cmac, 16);
+        crypto_print_hex(cmac, 16);
         if (memcmp(cmac, expected3, 16) == 0)
             printf("-{I} Test 3 PASSED\n");
         else {
             printf("-{E} Test 3 FAILED. Expected: ");
-            print_hex(expected3, 16);
+            crypto_print_hex(expected3, 16);
             fail = 1;
         }
     }
@@ -161,12 +153,12 @@ int crypto_test_CMAC(void){
         fail = 1;
     } else {
         printf("-{I} Test 4 CMAC: ");
-        print_hex(cmac, 16);
+        crypto_print_hex(cmac, 16);
         if (memcmp(cmac, expected4, 16) == 0)
             printf("-{I} Test 4 PASSED\n");
         else {
             printf("-{E} Test 4 FAILED. Expected: ");
-            print_hex(expected4, 16);
+            crypto_print_hex(expected4, 16);
             fail = 1;
         }
     }
@@ -438,13 +430,13 @@ int crypto_test_AES_ECB(void) {
 
         if(subFail){
             printf("-{I} Plain Text: ");
-            print_hex(tv->plaintext, CRYPTO_AES_BLOCK_SIZE_BYTE);
+            crypto_print_hex(tv->plaintext, CRYPTO_AES_BLOCK_SIZE_BYTE);
             printf("-{I} Expected Cipher Text: ");
-            print_hex(tv->expectedCiphertext, CRYPTO_AES_BLOCK_SIZE_BYTE);
+            crypto_print_hex(tv->expectedCiphertext, CRYPTO_AES_BLOCK_SIZE_BYTE);
             printf("-{I} Cipher Text: ");
-            print_hex(ciphertext, CRYPTO_AES_BLOCK_SIZE_BYTE);
+            crypto_print_hex(ciphertext, CRYPTO_AES_BLOCK_SIZE_BYTE);
             printf("-{I} Decrypted Data: ");
-            print_hex(decryptedtext, CRYPTO_AES_BLOCK_SIZE_BYTE);
+            crypto_print_hex(decryptedtext, CRYPTO_AES_BLOCK_SIZE_BYTE);
 
             printf(
                 "-{E} AES-%d ECB Test Vector %u Failed!!\n", 
@@ -666,13 +658,13 @@ int crypto_test_AES_CTR(void) {
 
         if (subFail) {
             printf("-{I} Plain Text: ");
-            print_hex(tv->plaintext, CRYPTO_AES_BLOCK_SIZE_BYTE);
+            crypto_print_hex(tv->plaintext, CRYPTO_AES_BLOCK_SIZE_BYTE);
             printf("-{I} Expected Cipher Text: ");
-            print_hex(tv->expectedCiphertext, CRYPTO_AES_BLOCK_SIZE_BYTE);
+            crypto_print_hex(tv->expectedCiphertext, CRYPTO_AES_BLOCK_SIZE_BYTE);
             printf("-{I} Cipher Text: ");
-            print_hex(ciphertext, CRYPTO_AES_BLOCK_SIZE_BYTE);
+            crypto_print_hex(ciphertext, CRYPTO_AES_BLOCK_SIZE_BYTE);
             printf("-{I} Decrypted Data: ");
-            print_hex(decryptedtext, CRYPTO_AES_BLOCK_SIZE_BYTE);
+            crypto_print_hex(decryptedtext, CRYPTO_AES_BLOCK_SIZE_BYTE);
 
             printf(
                 "-{E} AES-%d CTR Test Vector %u Failed!!\n",

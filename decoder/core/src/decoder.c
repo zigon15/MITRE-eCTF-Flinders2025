@@ -1,7 +1,7 @@
 /**
  * @file    decoder.c
- * @author  Samuel Meyers
- * @brief   eCTF Decoder Example Design Implementation
+ * @author  Samuel Meyers, Simon Rosenzweig
+ * @brief   Flinders eCTF Decoder Implementation
  * @date    2025
  *
  * This source file is part of an example system for MITRE's 2025 Embedded System CTF (eCTF).
@@ -15,6 +15,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+
+#include "decoder.h"
 #include "mxc_device.h"
 #include "status_led.h"
 #include "board.h"
@@ -24,27 +26,14 @@
 
 #include "simple_uart.h"
 #include "crypto.h"
+#include "subscription.h"
 
 
 #include "crypto_test.h"
 
 /**********************************************************
- ******************* PRIMITIVE TYPES **********************
- **********************************************************/
-
-#define timestamp_t uint64_t
-#define channel_id_t uint32_t
-#define decoder_id_t uint32_t
-#define pkt_len_t uint16_t
-
-/**********************************************************
  *********************** CONSTANTS ************************
  **********************************************************/
-
-#define MAX_CHANNEL_COUNT 8
-#define EMERGENCY_CHANNEL 0
-#define FRAME_SIZE 64
-#define DEFAULT_CHANNEL_TIMESTAMP 0xFFFFFFFFFFFFFFFF
 // This is a canary value so we can confirm whether this decoder has booted before
 #define FLASH_FIRST_BOOT 0xDEADBEEF
 
@@ -70,13 +59,6 @@ typedef struct {
     timestamp_t timestamp;
     uint8_t data[FRAME_SIZE];
 } frame_packet_t;
-
-typedef struct {
-    decoder_id_t decoder_id;
-    timestamp_t start_timestamp;
-    timestamp_t end_timestamp;
-    channel_id_t channel;
-} subscription_update_packet_t;
 
 typedef struct {
     channel_id_t channel;
@@ -138,7 +120,6 @@ int is_subscribed(channel_id_t channel) {
     return 0;
 }
 
-
 /**********************************************************
  ********************* CORE FUNCTIONS *********************
  **********************************************************/
@@ -166,52 +147,6 @@ int list_channels() {
 
     // Success message
     host_write_packet(LIST_MSG, &resp, len);
-    return 0;
-}
-
-
-/** @brief Updates the channel subscription for a subset of channels.
- *
- *  @param pkt_len The length of the incoming packet
- *  @param update A pointer to an array of channel_update structs,
- *      which contains the channel number, start, and end timestamps
- *      for each channel being updated.
- *
- *  @note Take care to note that this system is little endian.
- *
- *  @return 0 upon success.  -1 if error.
-*/
-int update_subscription(pkt_len_t pkt_len, subscription_update_packet_t *update) {
-    int i;
-
-    if (update->channel == EMERGENCY_CHANNEL) {
-        STATUS_LED_RED();
-        host_print_error("Failed to update subscription - cannot subscribe to emergency channel\n");
-        return -1;
-    }
-
-    // Find the first empty slot in the subscription array
-    for (i = 0; i < MAX_CHANNEL_COUNT; i++) {
-        if (decoder_status.subscribed_channels[i].id == update->channel || !decoder_status.subscribed_channels[i].active) {
-            decoder_status.subscribed_channels[i].active = true;
-            decoder_status.subscribed_channels[i].id = update->channel;
-            decoder_status.subscribed_channels[i].start_timestamp = update->start_timestamp;
-            decoder_status.subscribed_channels[i].end_timestamp = update->end_timestamp;
-            break;
-        }
-    }
-
-    // If we do not have any room for more subscriptions
-    if (i == MAX_CHANNEL_COUNT) {
-        STATUS_LED_RED();
-        host_print_error("Failed to update subscription - max subscriptions installed\n");
-        return -1;
-    }
-
-    flash_simple_erase_page(FLASH_STATUS_ADDR);
-    flash_simple_write(FLASH_STATUS_ADDR, &decoder_status, sizeof(flash_entry_t));
-    // Success message with an empty body
-    host_write_packet(SUBSCRIBE_MSG, NULL, 0);
     return 0;
 }
 
@@ -303,51 +238,28 @@ void init() {
         // If crypto fails to initialize, do not continue to execute
         while(1);
     }
+
+    ret = secrets_init();
+    if(ret != 0){
+        STATUS_LED_ERROR();
+
+        // If globals secrets fails to initialize, do not continue to execute
+        while(1);
+    }
 }
 
-void cryptoTest(void){
-    int res;
-
-    uint8_t pPlainText[32] = {
-        0x12, 0x34, 0x56, 0x78,
-        0x9a, 0xbc, 0xde, 0xf0,
-        0xde, 0xad, 0xbe, 0xef,
-        0x0b, 0xad, 0xc0, 0xde,
-        0xfe, 0xed, 0xfa, 0xce,
-        0xab, 0xcd, 0xef, 0x01,
-        0x11, 0x22, 0x33, 0x44,
-        0x55, 0x66, 0x77, 0x88
-    };
-    uint8_t pCypherText[32];
-    memset(pCypherText, 0, 32);
-
-    uint8_t pKey[32] = {
-        0x60, 0x3f, 0xa8, 0x9b, 0x3d, 0x4c, 0xf1, 0x72,
-        0xb8, 0x57, 0x16, 0xda, 0x72, 0x5b, 0x96, 0x7f,
-        0x44, 0xa5, 0x8c, 0x13, 0xe9, 0x5f, 0x91, 0x1e,
-        0x9c, 0x67, 0x29, 0xbd, 0x86, 0x38, 0xd1, 0x5f
-    };
-
-    res = crypto_AES_ECB_encrypt(
-        pKey, MXC_AES_256BITS,
-        pPlainText, pCypherText, 32
-    );
-    if(res != 0){
-        host_print_debug("crypto_AES_ECB_encrypt failed!!");
+void test_crypto(){
+    // Run crypto tests
+    if(crypto_test_AES_ECB() != 0){
+        printf("@ERROR crypto_test_AES_ECB failed!!\n\n");
     }
 
-    uint8_t pDecryptedText[32];
-    memset(pDecryptedText, 0, 32);
-    res = crypto_AES_ECB_decrypt(
-        pKey, MXC_AES_256BITS,
-        pCypherText, pDecryptedText, 32
-    );
-    if(res != 0){
-        host_print_error("crypto_AES_ECB_decrypt failed!!");
+    if(crypto_test_AES_CTR() != 0){
+        printf("@ERROR crypto_test_AES_CTR failed!!\n\n");
     }
 
-    if (memcmp(pPlainText, pDecryptedText, 32) != 0) {
-        host_print_debug("Crypto mismatch");
+    if(crypto_test_CMAC() != 0){
+        printf("@ERROR crypto_test_CMAC failed!!\n\n");
     }
 }
 
@@ -364,20 +276,23 @@ int main(void) {
     // Initialize the device
     init();
 
-    // Run crypto tests
-    if(crypto_test_AES_ECB() != 0){
-        printf("@ERROR crypto_test_AES_ECB failed!!\n\n");
-    }
-
-    if(crypto_test_AES_CTR() != 0){
-        printf("@ERROR crypto_test_AES_CTR failed!!\n\n");
-    }
-
-    if(crypto_test_CMAC() != 0){
-        printf("@ERROR crypto_test_CMAC failed!!\n\n");
-    }
-    while(1);
+    // test_crypto();
+    // while(1);
     
+    unsigned char subscription_update_buff[] = {
+        0x01, 0x00, 0x00, 0x00, 0xE1, 0xCA, 0xE7, 0xFB, 
+0xC6, 0x19, 0x93, 0x74, 0x9B, 0xB0, 0x88, 0xD4, 
+0xF8, 0x3E, 0xBF, 0xD7, 0x31, 0xC9, 0xC9, 0xED, 
+0x1F, 0x0B, 0xCB, 0x42, 0x18, 0x71, 0x93, 0xDA, 
+0x1C, 0xCF, 0xC5, 0x90, 0x6D, 0x1C, 0xCA, 0x8C, 
+0x2F, 0x72, 0x62, 0x7B, 0x98, 0x9E, 0x9D, 0x4E
+    };
+    subscription_update(sizeof(subscription_update_buff), subscription_update_buff);
+
+    printf("@INFO Decoder ID: 0x%08X\n", DECODER_ID);
+    while(1);
+
+
     host_print_debug("Decoder Booted!\n");
 
     // Process commands forever
@@ -400,7 +315,6 @@ int main(void) {
         // Handle list command
         case LIST_MSG:
             STATUS_LED_CYAN();
-            cryptoTest();
             list_channels();
             break;
 
@@ -413,7 +327,7 @@ int main(void) {
         // Handle subscribe command
         case SUBSCRIBE_MSG:
             STATUS_LED_YELLOW();
-            update_subscription(pkt_len, (subscription_update_packet_t *)uart_buf);
+            subscription_update(pkt_len, uart_buf);
             break;
 
         // Handle bad command

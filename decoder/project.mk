@@ -22,6 +22,8 @@ IPATH+=core/inc
 IPATH+=core/drivers/crypto
 IPATH+=/secrets
 
+IPATH+=/global_secrets.S
+
 # Source file locations
 VPATH+=core/src/
 VPATH+=core/drivers/crypto
@@ -31,3 +33,5 @@ VPATH+=core/drivers/crypto
 LINKERFILE=firmware.ld
 STARTUPFILE=startup_firmware.S
 ENTRY=firmware_startup
+
+BINS+=secrets.S

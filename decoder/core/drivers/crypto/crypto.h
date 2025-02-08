@@ -115,5 +115,7 @@ int crypto_AES_CMAC(
 
 uint8_t crypto_get_key_len(mxc_aes_keys_t keyType);
 
+void crypto_print_hex(const uint8_t *data, size_t len);
+
 #endif
 

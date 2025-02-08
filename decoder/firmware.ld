@@ -15,6 +15,14 @@ SECTIONS {
         *(.rom_handlers*)
     } > ROM
 
+    /* .global_secrets :
+    {   
+        . = ALIGN(16);
+        __global_secret_start = .;
+        KEEP(*(.global_secrets))
+        __global_secret_end = .;
+    } > FLASH */
+
     .text :
     {
         _text = .;
@@ -25,6 +33,7 @@ SECTIONS {
 
         KEEP(*(.init))
         KEEP(*(.fini))
+        KEEP(*(.global_secrets))
 
         /* C++ Exception handling */
         KEEP(*(.eh_frame*))
@@ -34,11 +43,11 @@ SECTIONS {
     /* Binary import */
     .bin_storage :
     {
-       FILL(0xFF)
-      _bin_start_ = .;
-      KEEP(*(.bin_storage_img))
-      _bin_end_ = .;
-      . = ALIGN(4);
+        FILL(0xFF)
+        _bin_start_ = .;
+        KEEP(*(.bin_storage_img))
+        _bin_end_ = .;
+        . = ALIGN(4);
     } > FLASH
     
     .rom_code :
@@ -102,9 +111,9 @@ SECTIONS {
         PROVIDE_HIDDEN (__fini_array_end = .);
 
         _edata = ALIGN(., 4);
-    } > SRAM AT>FLASH
+    } > SRAM AT > FLASH
     __load_data = LOADADDR(.data);
-
+    
     .bss :
     {
         . = ALIGN(4);

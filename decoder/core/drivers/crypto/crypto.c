@@ -383,3 +383,12 @@ uint8_t crypto_get_key_len(mxc_aes_keys_t keyType){
         break;
     }
 }
+
+// Helper function to print 16-byte hex output
+void crypto_print_hex(const uint8_t *pData, size_t len){
+    printf("0x");
+    for (size_t i = 0; i < len; i++) {
+        printf("%02x", pData[i]);
+    }
+    printf("\n");
+}
