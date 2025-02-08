@@ -35,3 +35,9 @@ STARTUPFILE=startup_firmware.S
 ENTRY=firmware_startup
 
 BINS+=secrets.S
+
+# Set assembler flag if development build
+# - Uses different global secrets location
+ifeq ($(DEV_BUILD),1) 
+	PROJ_AFLAGS+=-DDEV_BUILD
+endif
