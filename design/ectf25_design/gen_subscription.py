@@ -12,6 +12,7 @@ Copyright: Copyright (c) 2025 The MITRE Corporation
 
 import argparse
 import base64
+import os
 from pathlib import Path
 import struct
 from cryptography.hazmat.primitives.cmac import CMAC
@@ -24,7 +25,14 @@ from loguru import logger
 AES_KEY_LEN_BIT = 256
 AES_KEY_LEN_BYTE = AES_KEY_LEN_BIT//8
 
-SUBSCRIPTION_UPDATE_DATA_LEN = 34
+AES_BLOCK_SIZE_BIT = 128
+AES_BLOCK_SIZE_BYTE = 16
+
+SUBSCRIPTION_UPDATE_DATA_LEN = 48
+
+# Different constant used for KDF of the MIC and encryption keys
+SUBSCRIPTION_MIC_KEY_TYPE = 0xC7
+SUBSCRIPTION_ENCRYPTION_KEY_TYPE = 0x98
 
 def parse_secrets(
     raw_secrets: bytes,   
@@ -61,15 +69,22 @@ def parse_secrets(
         for i in range(num_channels)
     ]
 
+    # print(', '.join(f'0x{b:02X}' for b in subscription_kdf_key))
+
+    # for channel_key, channel in zip(channel_keys, channels):
+    #     print(channel)
+    #     print(', '.join(f'0x{b:02X}' for b in channel_key))
+    
+
     # Print secrets for debugging
     channel_key_pairs = [
-        f"{{Channel: {channel}, Key: '{base64.b64encode(key).decode('utf-8')}}}'" 
+        f"{{Channel: {channel}, Key: 0x{key.hex()}}}'" 
         for channel, key in zip(channels, channel_keys)
     ]
-    logger.debug(
+    logger.info(
         f"Secrets: {{"
-            f"Subscription KDF Key: '{base64.b64encode(subscription_kdf_key).decode('utf-8')}', "  
-            f"Frame KDF Key: '{base64.b64encode(frame_kdf_key).decode('utf-8')}', "  
+            f"Subscription KDF Key: 0x{subscription_kdf_key.hex()}', "  
+            f"Frame KDF Key: {frame_kdf_key.hex()}', "  
             f"Channel Secrets: [{', '.join(channel_key_pairs)}]"
         f"}}"
     )
@@ -94,10 +109,17 @@ def get_key_by_channel(
             return pair['key']
     return None
 
-def subscription_kdf(
+# Derive the MIC and encryption keys used for the subscription update packet
+# - Separate keys for MIC and encryption in case of leakage (Do not use same key twice!!)
+# - Random nonce used internally to ensure we never get the same output twice!!
+# - Base the KDF on as much context as possible so harder to derive
+# References:
+# - https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-108r1-upd1.pdf
+# - https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-133r2.pdf#page=24.08
+# - https://resources.lora-alliance.org/technical-specifications/ts001-1-0-4-lorawan-l2-1-0-4-specification
+def subscription_derive_keys(
     device_id: int,
-    channel: int, channel_key: bytes, subscription_kdf_key: bytes, 
-    start: int, end: int
+    channel: int, channel_key: bytes, subscription_kdf_key: bytes
 ) -> bytes:
     """
     AES Key Derivation Function for subscription update encryption
@@ -108,39 +130,117 @@ def subscription_kdf(
         logger.error(f"Bad subscription kdf key length, Expected {AES_KEY_LEN_BYTE} bytes!!")
         exit()
 
-    # Max one block for key derivation!!
-    # - ECB does not tie neighboring blocks together!!
+    # Nonce must have some randomness to ensure derived keys are never the same
+    ctr_nonce_rand = os.urandom(12)
+    nonce = device_id.to_bytes(4, byteorder='big') + ctr_nonce_rand
+    
+
+    # logger.info(f"KDF AES CTR Nonce Rand -> 0x{ctr_nonce_rand.hex()}")
+    # logger.info(f"KDF AES CTR Nonce -> 0x{nonce.hex()}")
+    logger.info(f"KDF AES CTR Key -> 0x{subscription_kdf_key.hex()}")
+
     cipher = Cipher(
         algorithms.AES(subscription_kdf_key), 
-        modes.ECB(),
+        modes.CTR(nonce=nonce),
         backend=default_backend()
     )
-    encryptor = cipher.encryptor()
 
-    # Input data to derive key from
-    # [0]: Channel Key (80b) -> Only using part of it as need total block length to be 32 bytes!!
-    # [10]: Device ID (32b)
-    # [14]: Time Stamp Start (64b)
-    # [22]: Time Stamp End (64b)
-    # [30]: Channel (16b)
-    # 10 + 4 + 8 + 8 + 2 = 32 bytes long -> 1 AES256 block long
-    input_bytes = channel_key[0:10] + device_id.to_bytes(4, byteorder='little') +\
-        start.to_bytes(8, byteorder='little') + end.to_bytes(8, byteorder='little') +\
-        channel.to_bytes(2, byteorder='little')
+    # Input data to derive MIC key from
+    # [0]: SUBSCRIPTION_MIC_KEY_TYPE (1 byte)
+    # [1]: Channel Key (25 bytes)
+    # [17]: Device ID (4 bytes)
+    # [21]: Channel (2 bytes)
+    # 1 + 25 + 4 + 2 = 32 bytes long
+    input_bytes = SUBSCRIPTION_MIC_KEY_TYPE.to_bytes(1) + channel_key[0:25] + device_id.to_bytes(4, byteorder='little') +\
+                  channel.to_bytes(2, byteorder='little')
 
-    # Ensure input bytes are one block length only for security!!
-    if len(input_bytes) != AES_KEY_LEN_BYTE:
-        logger.error("AES input bytes len must be one block len as no block chaining use!! Multiple blocks insecure with ECB!!")
+
+    if len(input_bytes) != 2*AES_BLOCK_SIZE_BYTE:
+        logger.error("Expected AES CTR Input for Subscription KDF to be one block length!!")
         exit()
 
     # Perform AES encryption
-    derived_key = encryptor.update(input_bytes) + encryptor.finalize()
-    derived_key = derived_key[0:32]
+    encryptor = cipher.encryptor()
+    mic_key = encryptor.update(input_bytes) + encryptor.finalize()
+    mic_key = mic_key[0:16]
 
-    logger.debug(f"KDF -> Subscription Key: {base64.b64encode(derived_key)}")
+    logger.info(f"MIC AES CTR KDF Nonce -> 0x{nonce.hex()}")
+    logger.info(f"MIC KDF Input Data -> 0x{input_bytes.hex()}")
+    logger.info(f"MIC Key -> 0x{mic_key.hex()}")
+    
+    # Input data to derive encryption key from
+    # [0]: SUBSCRIPTION_ENCRYPTION_KEY_TYPE (1 byte)
+    # [1]: Channel Key (25 bytes)
+    # [17]: Device ID (4 bytes)
+    # [21]: Channel (2 bytes)
+    # 1 + 25 + 4 + 2 = 32 bytes long
+    input_bytes = SUBSCRIPTION_ENCRYPTION_KEY_TYPE.to_bytes(1) + channel_key[0:25] + device_id.to_bytes(4, byteorder='little') +\
+                  channel.to_bytes(2, byteorder='little')
+    
+    # Perform AES encryption
+    number = int.from_bytes(ctr_nonce_rand, byteorder='big')
+    number += 1
+    ctr_nonce_rand_p1 = number.to_bytes(12, byteorder='big')
 
-    return derived_key
+    nonce = device_id.to_bytes(4, byteorder='big') + ctr_nonce_rand_p1
+    cipher = Cipher(
+        algorithms.AES(subscription_kdf_key), 
+        modes.CTR(nonce=nonce),
+        backend=default_backend()
+    )
+    encryptor = cipher.encryptor()
+    encryption_key = encryptor.update(input_bytes) + encryptor.finalize()
+    encryption_key = encryption_key[0:16]
 
+
+    logger.info(f"Encryption AES CTR KDF Nonce -> 0x{nonce.hex()}")
+    logger.info(f"Encryption KDF Input Data -> 0x{input_bytes.hex()}")
+    logger.info(f"Encryption Key -> 0x{encryption_key.hex()}")
+
+    # logger.debug(f"KDF -> Subscription MIC Key: {base64.b64encode(mic_key)}")
+    # logger.debug(f"KDF -> Subscription Encryption Key: {base64.b64encode(encryption_key)}")
+
+    return mic_key, encryption_key, ctr_nonce_rand
+
+def subscription_encrypt_payload(
+    encryption_key: bytes, ctr_nonce_rand: bytes, start: int, end: int
+):  
+    # CHECK: We can use the same nonce here as the key is different, maybe?!?!
+    nonce = (b'\x00' * 4) + ctr_nonce_rand
+    # print("Encryption Nonce (hex):", nonce.hex())
+    
+    cipher = Cipher(
+        algorithms.AES(encryption_key), 
+        modes.CTR(nonce=nonce),
+        backend=default_backend()
+    )
+
+    # Input data to derive encryption key from
+    # [0]: Time stamp start (8 bytes)
+    # [8]: Time stamp end (8 bytes)
+    # 8 + 8 = 16 bytes long
+    plain_text = start.to_bytes(8, byteorder='little') + end.to_bytes(8, byteorder='little')
+
+    # Perform AES encryption
+    encryptor = cipher.encryptor()
+    cypher_text = encryptor.update(plain_text) + encryptor.finalize()
+
+    logger.info(f"Encryption AES CTR Nonce -> 0x{nonce.hex()}")
+    logger.info(f"Encryption Input Data -> 0x{plain_text.hex()}")
+    logger.info(f"Encryption Cypher Text -> 0x{cypher_text.hex()}")
+    
+    return cypher_text
+
+# Generate a valid subscription update packet for the specified device
+# Aim: 
+#  1) We do not want an attacker to be able to generate a valid subscription update message
+#     - Do not leak global secrets so use key derivation
+#     - Never use the same key twice -> separate keys for MIC and data encryption
+#     - Each KDF should produce a different key -> use random nonce
+#  2) We do not want an attacker to modify a valid subscription update message and it still be valid
+#     - Trust nothing implicitly :( !!
+#     - Use AES CMAC on the whole message XORed with as much context as possible
+#     - AES CMAC should never be the same for two packets!!
 def gen_subscription(
     secrets: bytes, device_id: int, start: int, end: int, channel: int
 ) -> bytes:
@@ -165,41 +265,71 @@ def gen_subscription(
         exit()
 
     # Derive subscription update key from all message parameters
-    subscription_update_key = subscription_kdf(
+    mic_key, encryption_key, ctr_nonce_rand = subscription_derive_keys(
         device_id=device_id,
         channel=channel, channel_key=channel_key,
-        subscription_kdf_key=secrets["SubscriptionKdfKey"],
-        start=start,
-        end=end,
+        subscription_kdf_key=secrets["SubscriptionKdfKey"]
     )
 
-    # Packet format
-    # [0]: Packet length (8b)
-    # [1]: Time Stamp Start (64b)
-    # [9]: Time Stamp End (64b)
-    # [17]: MIC (16 bytes)
-    raw_data = struct.pack(
-        "<BQQB", 
-        17 + 16,
-        start,
-        end,
-        channel,
+    # Encrypt data
+    # - Honestly, time start and end do not need to be encrypted 
+    #   - MIC ensures they can not be modified and packet be valid
+    # - Main aim is to make data used for MIC more random
+    cipher_text = subscription_encrypt_payload(
+        encryption_key=encryption_key, ctr_nonce_rand=ctr_nonce_rand, 
+        start=start, end=end
     )
 
-    c = CMAC(algorithms.AES(subscription_update_key), backend=default_backend())
-    c.update(raw_data)
-    mac = c.finalize()
-    logger.debug(f"Message MAC: {base64.b64encode(mac)}")
-
-    # Add on the MIC
-    raw_data = raw_data + mac
-
-    if len(raw_data) != SUBSCRIPTION_UPDATE_DATA_LEN:
-        logger.error(f"Bad Subscription Update Length -> ({SUBSCRIPTION_UPDATE_DATA_LEN} != {len(raw_data)})!!")
+    if len(cipher_text) != AES_BLOCK_SIZE_BYTE:
+        logger.error("Expected Subscription Cipher Text to be One AES Block Length!!")
         exit()
 
+    # Double check all the lengths are as expected
+    assert(len(ctr_nonce_rand) == 12)
+    assert(len(cipher_text) == 16)
+
+    # Packet format
+    # [0]: Channel (4 Bytes)
+    # [4]: AES CTR nonce random bytes (12 Bytes)
+    # [16]: Cipher text (16 Bytes)
+    # [32]: MIC (16 bytes) [Added later as MIC is calculated on whole packet]
+    # 4 + 12 + 16 + 16 = 48
+    subscription_update_msg = struct.pack(
+        "<I12s16s", 
+        channel,
+        ctr_nonce_rand,
+        cipher_text
+    )
+
+    # Calculate MIC using AES CMAC over whole packet using derived MIC key
+    cmac = CMAC(algorithms.AES(mic_key), backend=default_backend())
+    cmac.update(subscription_update_msg)
+    mic = cmac.finalize()
+
+    logger.info(f"AES CMAC Input -> 0x{subscription_update_msg.hex()}")
+    logger.info(f"MIC -> 0x{mic.hex()}")
+
+    assert(len(mic) == 16)
+
+    # Add on the MIC
+    subscription_update_msg = subscription_update_msg + mic
+
+    if len(subscription_update_msg) != SUBSCRIPTION_UPDATE_DATA_LEN:
+        logger.error(f"Bad Subscription Update Length -> ({SUBSCRIPTION_UPDATE_DATA_LEN} != {len(subscription_update_msg)})!!")
+        exit()
+
+
+    logger.info(f"Subscription Update Message -> 0x{subscription_update_msg.hex()}")
+
+    for i in range(len(subscription_update_msg)):
+        if i % 8 == 0 and i != 0:
+            print()
+        
+        print(f"0x{subscription_update_msg[i]:02X}, ", end="")
+    print()
+
     # Subscription update will be sent to the decoder with ectf25.tv.subscribe
-    return raw_data
+    return subscription_update_msg
 
 def parse_args():
     """Define and parse the command line arguments
