@@ -25,10 +25,21 @@ from loguru import logger
 AES_KEY_LEN_BIT = 256
 AES_KEY_LEN_BYTE = AES_KEY_LEN_BIT//8
 
+SUBSCRIPTION_KDF_KEY_LEN = 32
+SUBSCRIPTION_CYPHER_AUTH_TAG_LEN = 16
+FRAME_KDF_KEY_LEN = 32
+CHANNEL_NUM_LEN = 2
+CHANNEL_LEN = 2
+CHANNEL_KEY_LEN = 32
+
 AES_BLOCK_SIZE_BIT = 128
 AES_BLOCK_SIZE_BYTE = 16
 
-SUBSCRIPTION_UPDATE_DATA_LEN = 48
+AES_CMAC_MIC_LEN = 16
+
+SUBSCRIPTION_UPDATE_NONCE_RAND_LEN = 12
+SUBSCRIPTION_UPDATE_CYPHER_TEX_LEN = 2*AES_BLOCK_SIZE_BYTE
+SUBSCRIPTION_UPDATE_DATA_LEN = 64
 
 # Different constant used for KDF of the MIC and encryption keys
 SUBSCRIPTION_MIC_KEY_TYPE = 0xC7
@@ -46,26 +57,30 @@ def parse_secrets(
     offset = 0
 
     # [0:31] bytes are subscription KDF key
-    subscription_kdf_key = raw_secrets[0:32] 
-    offset += 32
+    subscription_kdf_key = raw_secrets[offset:offset+SUBSCRIPTION_KDF_KEY_LEN] 
+    offset += SUBSCRIPTION_KDF_KEY_LEN
 
-    # [32:63] bytes are frame KDF key
-    frame_kdf_key = raw_secrets[offset:offset+32]
-    offset += 32
+    # [32:47]
+    subscription_cypher_auth_tag = raw_secrets[offset:offset+SUBSCRIPTION_CYPHER_AUTH_TAG_LEN] 
+    offset += SUBSCRIPTION_CYPHER_AUTH_TAG_LEN
 
-    # [64:65] bytes are number of channels (16b) followed by channel IDs (16b each)
-    num_channels = struct.unpack('<H', raw_secrets[offset:offset+2])[0]
-    offset += 2
+    # [48:79] bytes are frame KDF key
+    frame_kdf_key = raw_secrets[offset:offset+FRAME_KDF_KEY_LEN]
+    offset += FRAME_KDF_KEY_LEN
+
+    # [80:81] bytes are number of channels (16b) followed by channel IDs (16b each)
+    num_channels = struct.unpack('<H', raw_secrets[offset:offset+CHANNEL_NUM_LEN])[0]
+    offset += CHANNEL_NUM_LEN
 
     channels = [
-        struct.unpack('<H', raw_secrets[offset + i*2: offset + (i+1)*2])[0]
+        struct.unpack('<H', raw_secrets[offset + i*CHANNEL_LEN: offset + (i+1)*CHANNEL_LEN])[0]
         for i in range(num_channels)
     ]
-    offset += num_channels*2
+    offset += num_channels*CHANNEL_LEN
 
     # Remaining bytes are the 256-bit channel keys
     channel_keys = [
-        raw_secrets[offset + i*32 : offset + (i+1)*32]
+        raw_secrets[offset + i*CHANNEL_KEY_LEN : offset + (i+1)*CHANNEL_KEY_LEN]
         for i in range(num_channels)
     ]
 
@@ -75,7 +90,6 @@ def parse_secrets(
     #     print(channel)
     #     print(', '.join(f'0x{b:02X}' for b in channel_key))
     
-
     # Print secrets for debugging
     channel_key_pairs = [
         f"{{Channel: {channel}, Key: 0x{key.hex()}}}'" 
@@ -84,6 +98,7 @@ def parse_secrets(
     logger.info(
         f"Secrets: {{"
             f"Subscription KDF Key: 0x{subscription_kdf_key.hex()}', "  
+            f"Subscription Cypher Auth Tag: 0x{subscription_cypher_auth_tag.hex()}, "
             f"Frame KDF Key: {frame_kdf_key.hex()}', "  
             f"Channel Secrets: [{', '.join(channel_key_pairs)}]"
         f"}}"
@@ -91,6 +106,7 @@ def parse_secrets(
 
     return {
         "SubscriptionKdfKey": subscription_kdf_key,
+        "SubscriptionCypherAuthTag": subscription_cypher_auth_tag,
         "FrameKdfKey": frame_kdf_key,
         "ChannelSecrets": [{"channel": channel, "key": key} for channel, key in zip(channels, channel_keys)]
     }
@@ -203,7 +219,9 @@ def subscription_derive_keys(
     return mic_key, encryption_key, ctr_nonce_rand
 
 def subscription_encrypt_payload(
-    encryption_key: bytes, ctr_nonce_rand: bytes, start: int, end: int
+    encryption_key: bytes, ctr_nonce_rand: bytes, 
+    subscription_cypher_auth_tag: bytes,
+    start: int, end: int,
 ):  
     # CHECK: We can use the same nonce here as the key is different, maybe?!?!
     nonce = (b'\x00' * 4) + ctr_nonce_rand
@@ -217,9 +235,10 @@ def subscription_encrypt_payload(
 
     # Input data to derive encryption key from
     # [0]: Time stamp start (8 bytes)
-    # [8]: Time stamp end (8 bytes)
-    # 8 + 8 = 16 bytes long
-    plain_text = start.to_bytes(8, byteorder='little') + end.to_bytes(8, byteorder='little')
+    # [8]: Magic authentication number (16 bytes)
+    # [24]: Time stamp end (8 bytes)
+    # 8 + 16 + 8 = 32 bytes long
+    plain_text = start.to_bytes(8, byteorder='little') + subscription_cypher_auth_tag + end.to_bytes(8, byteorder='little')
 
     # Perform AES encryption
     encryptor = cipher.encryptor()
@@ -277,25 +296,26 @@ def gen_subscription(
     # - Main aim is to make data used for MIC more random
     cipher_text = subscription_encrypt_payload(
         encryption_key=encryption_key, ctr_nonce_rand=ctr_nonce_rand, 
+        subscription_cypher_auth_tag=secrets["SubscriptionCypherAuthTag"],
         start=start, end=end
     )
 
-    if len(cipher_text) != AES_BLOCK_SIZE_BYTE:
-        logger.error("Expected Subscription Cipher Text to be One AES Block Length!!")
+    if len(cipher_text) != SUBSCRIPTION_UPDATE_CYPHER_TEX_LEN:
+        logger.error("Expected Subscription Cipher Text to be Two AES Block Length!!")
         exit()
 
     # Double check all the lengths are as expected
-    assert(len(ctr_nonce_rand) == 12)
-    assert(len(cipher_text) == 16)
+    assert(len(ctr_nonce_rand) == SUBSCRIPTION_UPDATE_NONCE_RAND_LEN)
+    assert(len(cipher_text) == SUBSCRIPTION_UPDATE_CYPHER_TEX_LEN)
 
     # Packet format
     # [0]: Channel (4 Bytes)
     # [4]: AES CTR nonce random bytes (12 Bytes)
-    # [16]: Cipher text (16 Bytes)
-    # [32]: MIC (16 bytes) [Added later as MIC is calculated on whole packet]
-    # 4 + 12 + 16 + 16 = 48
+    # [16]: Cipher text (32 Bytes)
+    # [38]: MIC (16 bytes) [Added later as MIC is calculated on whole packet]
+    # 4 + 12 + 32 + 16 = 64
     subscription_update_msg = struct.pack(
-        "<I12s16s", 
+        "<I12s32s", 
         channel,
         ctr_nonce_rand,
         cipher_text
@@ -309,7 +329,7 @@ def gen_subscription(
     logger.info(f"AES CMAC Input -> 0x{subscription_update_msg.hex()}")
     logger.info(f"MIC -> 0x{mic.hex()}")
 
-    assert(len(mic) == 16)
+    assert(len(mic) == AES_CMAC_MIC_LEN)
 
     # Add on the MIC
     subscription_update_msg = subscription_update_msg + mic
