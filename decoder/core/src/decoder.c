@@ -105,7 +105,7 @@ void print_active_channels(void){
     for (uint32_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
         if (decoder_status.subscribed_channels[i].active) {
             printf(
-                "-{I} [%u] {Channel: %u, Time Stamp Start %llu, Time Stamps End %llu}\n",
+                "-{I} [%u] {Channel: %u, Time Stamp Start: %llu, Time Stamp End: %llu}\n",
                 i, decoder_status.subscribed_channels[i].id, 
                 decoder_status.subscribed_channels[i].start_timestamp,
                 decoder_status.subscribed_channels[i].end_timestamp

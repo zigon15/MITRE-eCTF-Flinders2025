@@ -15,7 +15,7 @@
 // 32 + 16 + 32 + 2 + 2 + 32 -> 116 bytes
 #define GLOBAL_SECRETS_MIN_SIZE (SUBSCRIPTION_KDF_KEY_LEN + SUBSCRIPTION_CIPHER_AUTH_TAG_LEN + FRAME_KDF_KEY_LEN + 2 + (2 + CHANNEL_KDF_KEY_LEN))
 
-// Defines for byte offset of the variables stored in flash
+// Definitions for byte offset of the global secrets variables stored in flash
 #define SUBSCRIPTION_KDF_KEY_OFFSET         (0)
 #define SUBSCRIPTION_CIPHER_AUTH_TAG_OFFSET (SUBSCRIPTION_KDF_KEY_OFFSET + SUBSCRIPTION_KDF_KEY_LEN)
 #define FRAME_KDF_KEY_OFFSET                (SUBSCRIPTION_CIPHER_AUTH_TAG_OFFSET + SUBSCRIPTION_CIPHER_AUTH_TAG_LEN)
@@ -38,10 +38,25 @@ static uint8_t globalSecretsValid = 0;
 static uint16_t numChannels = 0;
 
 /******************************** PRIVATE FUNCTION DECLARATIONS ********************************/
+/** @brief Calculated how long the global secrets should be 
+ *         based on the specified number of channels.
+ *  
+ * @param numChannels Number of channels in the deployment
+ * 
+ * @return Expected length of the global secrets given that it contains "numChannels" channels
+*/
 static uint32_t _num_channels_to_length(const uint16_t numChannels){
     return SUBSCRIPTION_KDF_KEY_LEN + SUBSCRIPTION_CIPHER_AUTH_TAG_LEN + FRAME_KDF_KEY_LEN + CHANNEL_NUM_LEN + numChannels*(CHANNEL_LEN + CHANNEL_KDF_KEY_LEN);
 }
 
+/** @brief Finds the specified channel in the current deployment 
+ *         and sets the given pointer to the channel KDF key.
+ *  
+ * @param channel Channel number to find
+ * @param ppKey Set to point to the channel KDF key, if channel exists
+ * 
+ * @return 0 upon success, 1 if failed to find channel or error
+*/
 static int _find_channel_info(
     const channel_id_t channel, const uint8_t **ppKey
 ){  
@@ -62,6 +77,10 @@ static int _find_channel_info(
     return 1;
 }
 
+/** @brief Prints all the global secrets over serial
+ *  
+ * @note Never call in production!!
+*/
 static void _print_global_secrets(void){
     // Ensure secrets are valid
     if(globalSecretsValid == 0){
@@ -97,23 +116,29 @@ static void _print_global_secrets(void){
 }
 
 /******************************** PUBLIC FUNCTION DECLARATIONS ********************************/
+
+/** @brief Initializes the global secrets module. 
+ *         Checks the format of the global secrets in flash makes senses.
+ * 
+ *  @return 0 upon success, 1 if error
+*/
 int secrets_init(void){
     const uint8_t *pSecretsBin = (uint8_t*)secrets_bin_start;
     const uint8_t *pSecretsBinEnd = (uint8_t*)secrets_bin_end;
     const size_t secretsLen = pSecretsBinEnd-pSecretsBin;
 
     printf("@TASK Check Global Secrets:\n");
-    printf("-{I} Secrets Start 0x%X\n", pSecretsBin);
-    printf("-{I} Secrets End 0x%X\n", pSecretsBinEnd);
+    // printf("-{I} Secrets Start 0x%X\n", pSecretsBin);
+    // printf("-{I} Secrets End 0x%X\n", pSecretsBinEnd);
     printf("-{I} Secrets Length %u Bytes\n", secretsLen);
     
-    for(size_t i = 0; i < secretsLen; i++){
-        if((i % 16 == 0) && (i != 0)){
-            printf("\n");
-        }
-        printf("0x%02X, ", pSecretsBin[i]);
-    }
-    printf("\n");
+    // for(size_t i = 0; i < secretsLen; i++){
+    //     if((i % 16 == 0) && (i != 0)){
+    //         printf("\n");
+    //     }
+    //     printf("0x%02X, ", pSecretsBin[i]);
+    // }
+    // printf("\n");
 
     //----- Validate format -=---//
     // Check length is good based on number of channels in deployment
@@ -139,12 +164,18 @@ int secrets_init(void){
 
     // Print global secrets for debug
     // TODO: Make sure removed in production!!
-    _print_global_secrets();
+    // _print_global_secrets();
 
     printf("-COMPLETE\n\n");
     return 0;
 }
 
+/** @brief Updates the given pointer to point to the subscription KDF key.
+ * 
+ * @param ppKey Set to point to the subscription KDF key
+ * 
+ *  @return 0 upon success, 1 if error
+*/
 int secrets_get_subscription_kdf_key(const uint8_t **ppKey){
     // Ensure secrets are valid
     if(globalSecretsValid == 0){
@@ -155,6 +186,12 @@ int secrets_get_subscription_kdf_key(const uint8_t **ppKey){
     return 0;
 }
 
+/** @brief Updates the given pointer to point to the subscription cipher auth tag.
+ * 
+ * @param ppKey Set to point to the subscription cipher auth tag.
+ * 
+ *  @return 0 upon success, 1 if error.
+*/
 int secrets_get_subscription_cipher_auth_tag(const uint8_t **ppCipherAuthTag){
     // Ensure secrets are valid
     if(globalSecretsValid == 0){
@@ -165,6 +202,12 @@ int secrets_get_subscription_cipher_auth_tag(const uint8_t **ppCipherAuthTag){
     return 0;
 }
 
+/** @brief Updates the given pointer to point to the frame KDF key.
+ * 
+ * @param ppKey Set to point to the frame KDF key.
+ * 
+ *  @return 0 upon success, 1 if error.
+*/
 int secrets_get_frame_kdf_key(const uint8_t **ppKey){
     // Ensure secrets are valid
     if(globalSecretsValid == 0){
@@ -175,6 +218,12 @@ int secrets_get_frame_kdf_key(const uint8_t **ppKey){
     return 0;
 }
 
+/** @brief Checks if the given channel is valid in the current deployment.
+ * 
+ * @param channel Channel to check if is valid.
+ * 
+ *  @return 0 if valid, 1 if failed to find channel in current deployment.
+*/
 int secrets_is_valid_channel(const channel_id_t channel){
     // Ensure secrets are valid
     if(globalSecretsValid == 0){
@@ -185,6 +234,14 @@ int secrets_is_valid_channel(const channel_id_t channel){
     return _find_channel_info(channel, &ppKey);
 }
 
+/** @brief Updated the given pointer to point to the channel KDF key for 
+ *         the specified channel.
+ * 
+ * @param channel Channel to get the KDF key for.
+ * @param ppKey Set to point to the specified channel KDF key.
+ * 
+ *  @return 0 upon success, 1 if channel not found or failed.
+*/
 int secrets_get_channel_kdf_key(const channel_id_t channel, const uint8_t **ppKey){
     // Ensure secrets are valid
     if(globalSecretsValid == 0){
@@ -197,6 +254,14 @@ int secrets_get_channel_kdf_key(const channel_id_t channel, const uint8_t **ppKe
     return res;
 }
 
+/** @brief Get the channel info for the "idx" channel in the current deployment.
+ * 
+ * @param idx The nth channel to get info for in the current deployment.
+ * @param ppChannel Set to point to "idx" channel number,
+ * @param ppKey Set to point to the "idx" channel KDF key.
+ * 
+ *  @return 0 upon success, 1 if failed.
+*/
 int secrets_get_channel_info(
     const size_t idx, 
     uint16_t const **ppChannel, const uint8_t **ppKey
