@@ -30,6 +30,8 @@ MAX_CHANNEL = 0xFFFF
 # Maximum number of channels allowed in a single deployment (16b unsigned)
 MAX_NUM_CHANNELS = 0xFFFF
 
+SUBSCRIPTION_CYPHER_AUTH_TAG_LEN = 16
+
 def gen_secrets(channels: list[int]) -> bytes:
     """Generate the contents secrets file
 
@@ -57,11 +59,17 @@ def gen_secrets(channels: list[int]) -> bytes:
     # You can change this to generate any secret material
     # The secrets file will never be shared with attackers
 
-    # Generate subscription and frame key for KDF
-    # - Random random 256 bit
+    # Generate subscription key for KDF and cypher authentication tag
+    # - Random 256 bit number
     subscription_kdf_key = random.getrandbits(AES_KEY_LEN_BIT).to_bytes(
         AES_KEY_LEN_BYTE, byteorder="little"
     )
+    subscription_cypher_auth_tag = random.getrandbits(SUBSCRIPTION_CYPHER_AUTH_TAG_LEN*8).to_bytes(
+        SUBSCRIPTION_CYPHER_AUTH_TAG_LEN, byteorder="little"
+    )
+
+    # Generate frame key for KDF
+    # - Random 256 bit number
     frame_kdf_key = random.getrandbits(AES_KEY_LEN_BIT).to_bytes(
         AES_KEY_LEN_BYTE, byteorder="little"
     )
@@ -75,31 +83,37 @@ def gen_secrets(channels: list[int]) -> bytes:
     # Print secrets for debugging
     logger.debug(f"Generated {len(channels)} Random Channel Keys for Channels {channels}")
     channel_key_pairs = [
-        f"{{Channel: {channel}, Key: '{base64.b64encode(key).decode('utf-8')}'}}" 
+        f"{{Channel: {channel}, Key: 0x'{key.hex()}'}}" 
         for channel, key in zip(channels, channel_keys)
     ]
+
     logger.debug(
         f"Secrets: {{"
-            f"Subscription KDF Key: '{base64.b64encode(subscription_kdf_key).decode('utf-8')}', "
-            f"Frame KDF Key: '{base64.b64encode(frame_kdf_key).decode('utf-8')}', "  
+            f"Subscription KDF Key: 0x{subscription_kdf_key.hex()}, "
+            f"Subscription Cypher Auth Tag: 0x{subscription_cypher_auth_tag.hex()}, "
+            f"Frame KDF Key: 0x{frame_kdf_key.hex()}', "  
             f"Channel Secrets: [{', '.join(channel_key_pairs)}]"
         f"}}"
     )
 
     # Pack the data
-    # [0]: Subscription KDF key (256b)
-    # [32]: Frame KDF key (256b)
-    # [64]: Number of channels (16b)
-    # [66]: Channels (16b each)
-    # [66 + 2*NumChannels]: Keys for each channel (256b each)
+    # [0]: Subscription KDF key (32 Bytes)
+    # [32]: Subscription cypher authentication key (16 Bytes)
+    # [48]: Frame KDF key (32 Bytes)
+    # [80]: Number of channels (2 Bytes)
+    # [82]: Channels (2 Bytes each)
+    # [82 + 2*NumChannels]: Keys for each channel (32 Bytes each)
     secrets = struct.pack(
-        f"<32s32sH{len(channels)}H{len(channels) * 32}s",
-        subscription_kdf_key,   # Subscription KDF key (256b)
-        frame_kdf_key,          # Frame KDF key (256b)
-        len(channels),          # Number of channels (16b)
-        *channels,              # Channels (16b each)
-        b"".join(channel_keys)  # Concatenate all channel keys (256b each)
+        f"<32s16s32sH{len(channels)}H{len(channels) * 32}s",
+        subscription_kdf_key,           # Subscription KDF key (32 Bytes)
+        subscription_cypher_auth_tag,   # Subscription Cypher Auth Tag (16 Bytes)
+        frame_kdf_key,                  # Frame KDF key (32 Bytes)
+        len(channels),                  # Number of channels (2 Bytes)
+        *channels,                      # Channels (2 Bytes each)
+        b"".join(channel_keys)          # Concatenate all channel keys (32 Bytes each)
     )
+
+    logger.debug(f"Secrets Len: {len(secrets)} Bytes")
     return secrets
 
 
