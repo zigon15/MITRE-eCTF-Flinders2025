@@ -38,14 +38,6 @@
 #define FLASH_FIRST_BOOT 0xDEADBEEF
 
 /**********************************************************
- ********************* STATE MACROS ***********************
- **********************************************************/
-
-// Calculate the flash address where we will store channel info as the 2nd to last page available
-#define FLASH_STATUS_ADDR ((MXC_FLASH_MEM_BASE + MXC_FLASH_MEM_SIZE) - (2 * MXC_FLASH_PAGE_SIZE))
-
-
-/**********************************************************
  *********** COMMUNICATION PACKET DEFINITIONS *************
  **********************************************************/
 
@@ -73,22 +65,6 @@ typedef struct {
 
 // Tells the compiler to resume padding struct members
 #pragma pack(pop)
-
-/**********************************************************
- ******************** TYPE DEFINITIONS ********************
- **********************************************************/
-
-typedef struct {
-    bool active;
-    channel_id_t id;
-    timestamp_t start_timestamp;
-    timestamp_t end_timestamp;
-} channel_status_t;
-
-typedef struct {
-    uint32_t first_boot; // if set to FLASH_FIRST_BOOT, device has booted before.
-    channel_status_t subscribed_channels[MAX_CHANNEL_COUNT];
-} flash_entry_t;
 
 /**********************************************************
  ************************ GLOBALS *************************
@@ -124,11 +100,26 @@ int is_subscribed(channel_id_t channel) {
  ********************* CORE FUNCTIONS *********************
  **********************************************************/
 
+void print_active_channels(void){
+    printf("@INFO Active Channels:\n");
+    for (uint32_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
+        if (decoder_status.subscribed_channels[i].active) {
+            printf(
+                "-{I} [%u] {Channel: %u, Time Stamp Start %llu, Time Stamps End %llu}\n",
+                i, decoder_status.subscribed_channels[i].id, 
+                decoder_status.subscribed_channels[i].start_timestamp,
+                decoder_status.subscribed_channels[i].end_timestamp
+            );
+        }
+    }
+    printf("-COMPLETE\n\n");
+}
+
 /** @brief Lists out the actively subscribed channels over UART.
  *
  *  @return 0 if successful.
 */
-int list_channels() {
+int list_channels(void) {
     list_response_t resp;
     pkt_len_t len;
 
@@ -189,7 +180,7 @@ int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
 
 /** @brief Initializes peripherals for system boot.
 */
-void init() {
+void init(void) {
     int ret;
 
     // Initialize the flash peripheral to enable access to persistent memory
@@ -248,7 +239,7 @@ void init() {
     }
 }
 
-void test_crypto(){
+void test_crypto(void){
     // Run crypto tests
     if(crypto_test_AES_ECB() != 0){
         printf("@ERROR crypto_test_AES_ECB failed!!\n\n");
@@ -279,15 +270,19 @@ int main(void) {
     // test_crypto();
     // while(1);
     
+    print_active_channels();
     unsigned char subscription_update_buff[] = {
-        0x01, 0x00, 0x00, 0x00, 0xE1, 0xCA, 0xE7, 0xFB, 
-0xC6, 0x19, 0x93, 0x74, 0x9B, 0xB0, 0x88, 0xD4, 
-0xF8, 0x3E, 0xBF, 0xD7, 0x31, 0xC9, 0xC9, 0xED, 
-0x1F, 0x0B, 0xCB, 0x42, 0x18, 0x71, 0x93, 0xDA, 
-0x1C, 0xCF, 0xC5, 0x90, 0x6D, 0x1C, 0xCA, 0x8C, 
-0x2F, 0x72, 0x62, 0x7B, 0x98, 0x9E, 0x9D, 0x4E
+        0x01, 0x00, 0x00, 0x00, 0x06, 0xBD, 0x93, 0x1A, 
+        0x05, 0x38, 0xFE, 0xD1, 0x7C, 0xC1, 0xDC, 0x04, 
+        0x20, 0x11, 0x78, 0x43, 0x63, 0x26, 0xDD, 0x6F, 
+        0x6E, 0x12, 0xAF, 0x64, 0xEC, 0x8C, 0x35, 0xED, 
+        0xEC, 0xC4, 0x46, 0xCB, 0x5A, 0x37, 0xB5, 0x63, 
+        0x54, 0x87, 0x0A, 0x51, 0xDF, 0x69, 0xE4, 0x0F, 
+        0x93, 0xD9, 0x1F, 0x11, 0xA4, 0x54, 0xED, 0x93, 
+        0x7D, 0x85, 0xAD, 0xFF, 0xBA, 0x65, 0x7E, 0x1F
     };
     subscription_update(sizeof(subscription_update_buff), subscription_update_buff);
+    print_active_channels();
 
     printf("@INFO Decoder ID: 0x%08X\n", DECODER_ID);
     while(1);

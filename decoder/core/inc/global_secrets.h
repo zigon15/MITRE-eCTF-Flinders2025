@@ -21,13 +21,17 @@
 
 /******************************** PUBLIC CONSTANTS ********************************/
 #define SUBSCRIPTION_KDF_KEY_LEN 32
+#define SUBSCRIPTION_CIPHER_AUTH_TAG_LEN 16
 #define FRAME_KDF_KEY_LEN 32
+#define CHANNEL_NUM_LEN 2
+#define CHANNEL_LEN 2
 #define CHANNEL_KDF_KEY_LEN 32
 
 /******************************** PUBLIC FUNCTION PROTOTYPES ********************************/
 int secrets_init(void);
 
 int secrets_get_subscription_kdf_key(uint8_t *pKey);
+int secrets_get_subscription_cipher_auth_tag(uint8_t *pCipherAuthTag);
 int secrets_get_frame_kdf_key(uint8_t *pKey);
 
 int secrets_is_valid_channel(channel_id_t channel);

@@ -19,6 +19,8 @@
 #define CRYPTO_AES_BLOCK_SIZE_BIT 128
 #define CRYPTO_AES_BLOCK_SIZE_BYTE 16
 
+#define CRYPTO_CMAC_OUTPUT_SIZE 16
+
 /******************************** PUBLIC FUNCTION PROTOTYPES ********************************/
 /** @brief Initializes pherpherials required for crypto operations
  *

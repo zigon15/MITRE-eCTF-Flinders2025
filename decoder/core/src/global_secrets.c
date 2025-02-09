@@ -7,21 +7,22 @@
 /******************************** PRIVATE CONSTANTS ********************************/
 // Minimum size for global secrets
 // [0]: Subscription KDF Key (32 bytes)
-// [32]: Frame KDF Keys (32 Bytes)
-// [64]: Num channels (2 bytes) -> 1 channel in deployment
-// [66]: First channel in deployment (2 bytes)
-// [68]: Channel KDF key (32 bytes)
-// 32 +32 + 2 + 2 + 32 -> 100 bytes
-#define GLOBAL_SECRETS_MIN_SIZE (SUBSCRIPTION_KDF_KEY_LEN + FRAME_KDF_KEY_LEN + 2 + (2 + CHANNEL_KDF_KEY_LEN))
+// [32]: Subscription Cipher Auth Tag Key (16 bytes)
+// [48]: Frame KDF Keys (32 Bytes)
+// [80]: Num channels (2 bytes) -> 1 channel in deployment
+// [82]: First channel in deployment (2 bytes)
+// [84]: Channel KDF key (32 bytes)
+// 32 + 16 + 32 + 2 + 2 + 32 -> 116 bytes
+#define GLOBAL_SECRETS_MIN_SIZE (SUBSCRIPTION_KDF_KEY_LEN + SUBSCRIPTION_CIPHER_AUTH_TAG_LEN + FRAME_KDF_KEY_LEN + 2 + (2 + CHANNEL_KDF_KEY_LEN))
 
-#define MAX_CHANNELS 16
+#define MAX_CHANNELS 32
 
 // Defines for byte offset of the variables stored in flash
-#define SUBSCRIPTION_KDF_KEY_OFFSET (0)
-#define FRAME_KDF_KEY_OFFSET        (SUBSCRIPTION_KDF_KEY_LEN)
-#define NUM_CHANNELS_OFFSET         (FRAME_KDF_KEY_OFFSET + FRAME_KDF_KEY_LEN)
-#define CHANNEL_INFO_OFFSET         (NUM_CHANNELS_OFFSET + 2)
-#define CHANNEL_INFO_SIZE           (2 + CHANNEL_KDF_KEY_LEN)
+#define SUBSCRIPTION_KDF_KEY_OFFSET         (0)
+#define SUBSCRIPTION_CIPHER_AUTH_TAG_OFFSET (SUBSCRIPTION_KDF_KEY_OFFSET + SUBSCRIPTION_KDF_KEY_LEN)
+#define FRAME_KDF_KEY_OFFSET                (SUBSCRIPTION_CIPHER_AUTH_TAG_OFFSET + SUBSCRIPTION_CIPHER_AUTH_TAG_LEN)
+#define NUM_CHANNELS_OFFSET                 (FRAME_KDF_KEY_OFFSET + FRAME_KDF_KEY_LEN)
+#define CHANNEL_INFO_OFFSET                 (NUM_CHANNELS_OFFSET + 2)
 
 /******************************** PRIVATE TYPES ********************************/
 typedef struct __attribute__((packed)) {
@@ -40,18 +41,19 @@ extern uint8_t secrets_bin_end[];
 static struct {
     uint8_t valid;
     uint8_t subscription_kdf_key[SUBSCRIPTION_KDF_KEY_LEN];
+    uint8_t subscription_cipher_auth_tag_key[SUBSCRIPTION_CIPHER_AUTH_TAG_LEN];
     uint8_t frame_kdf_key[FRAME_KDF_KEY_LEN];
 
-    // Can store 16 channels max!!
+    // Can store MAX_CHANNELS channels max!!
     uint8_t num_channels;
-    channel_key_pair_t channel_key_pairs[16];
+    channel_key_pair_t channel_key_pairs[MAX_CHANNELS];
 } global_secrets = {
     .valid = 0
 };
 
 /******************************** PRIVATE FUNCTION DECLARATIONS ********************************/
 static uint32_t _num_channels_to_length(uint16_t numChannels){
-    return SUBSCRIPTION_KDF_KEY_LEN + FRAME_KDF_KEY_LEN + 2 + numChannels*(2 + CHANNEL_KDF_KEY_LEN);
+    return SUBSCRIPTION_KDF_KEY_LEN + SUBSCRIPTION_CIPHER_AUTH_TAG_LEN + FRAME_KDF_KEY_LEN + CHANNEL_NUM_LEN + numChannels*(CHANNEL_LEN + CHANNEL_KDF_KEY_LEN);
 }
 
 static int16_t _channel_to_idx(uint16_t channel){
@@ -68,6 +70,8 @@ static int16_t _channel_to_idx(uint16_t channel){
 static void _print_global_secrets(){
     printf("-{I} Subscription KDF Key: ");
     crypto_print_hex(global_secrets.subscription_kdf_key, SUBSCRIPTION_KDF_KEY_LEN);
+    printf("-{I} Subscription Cypher Auth Tag: ");
+    crypto_print_hex(global_secrets.subscription_cipher_auth_tag_key, SUBSCRIPTION_CIPHER_AUTH_TAG_LEN);
     printf("-{I} Frame KDF Key: ");
     crypto_print_hex(global_secrets.frame_kdf_key, FRAME_KDF_KEY_LEN);
     printf("-{I} %u Channels:\n", global_secrets.num_channels);
@@ -122,19 +126,24 @@ int secrets_init(void){
     }
     printf("-{I} Length %u Bytes Good for %u Channels :)\n", secretsLen, numChannels);
 
-    // Copy subscription and frame KDF keys
+    // Copy subscription KDF key and cipher auth tag
     memcpy(
         global_secrets.subscription_kdf_key, 
         (pSecretsBin + SUBSCRIPTION_KDF_KEY_OFFSET), 
         SUBSCRIPTION_KDF_KEY_LEN
     );
+    memcpy(
+        global_secrets.subscription_cipher_auth_tag_key, 
+        (pSecretsBin + SUBSCRIPTION_CIPHER_AUTH_TAG_OFFSET), 
+        SUBSCRIPTION_CIPHER_AUTH_TAG_LEN
+    );
 
+    // Copy frame KDF key
     memcpy(
         global_secrets.frame_kdf_key, 
         (pSecretsBin + FRAME_KDF_KEY_OFFSET), 
         FRAME_KDF_KEY_LEN
     );
-
 
     // Copy over channel data
     global_secrets.num_channels = *(pSecretsBin + NUM_CHANNELS_OFFSET);
@@ -170,6 +179,20 @@ int secrets_get_subscription_kdf_key(uint8_t *pKey){
     }
 
     memcpy(pKey, global_secrets.subscription_kdf_key, SUBSCRIPTION_KDF_KEY_LEN);
+    return 0;
+}
+
+int secrets_get_subscription_cipher_auth_tag(uint8_t *pCipherAuthTag){
+    // Ensure data has been parsed
+    if(global_secrets.valid != 1){
+        return 1;
+    }
+
+    memcpy(
+        pCipherAuthTag, 
+        global_secrets.subscription_cipher_auth_tag_key, 
+        SUBSCRIPTION_CIPHER_AUTH_TAG_LEN
+    );
     return 0;
 }
 
