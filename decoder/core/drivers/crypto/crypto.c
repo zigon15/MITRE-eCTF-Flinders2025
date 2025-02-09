@@ -23,10 +23,10 @@
  * @param len Length of pDataIn1, pDataIn2 and pResult
  */
 void _block_XOR(
-    uint8_t *pDataIn1, uint8_t *pDataIn2, 
-    uint8_t *pResult, uint32_t len
+    const uint8_t *pDataIn1, const uint8_t *pDataIn2, 
+    uint8_t *pResult, const size_t len
 ){
-  for(uint16_t i = 0; i < len; i++){
+  for(size_t i = 0; i < len; i++){
     pResult[i] = pDataIn1[i] ^ pDataIn2[i];
   }
 }
@@ -36,12 +36,12 @@ void _block_XOR(
  * @param pData Data to bit shift left
  * @param len Length of pData
  */
-void _block_shift_left(uint8_t *pData, uint32_t len){
+void _block_shift_left(uint8_t *pData, const size_t len){
   uint8_t nextOverFlow = 0;
   uint8_t overFlow = 0;
 
-  for(uint16_t i = len; i > 0; i--){
-    uint16_t idx = i - 1;
+  for(size_t i = len; i > 0; i--){
+    uint32_t idx = i - 1;
 
     //Check if byte will overflow
     if(pData[idx] & 0b10000000){
@@ -54,12 +54,6 @@ void _block_shift_left(uint8_t *pData, uint32_t len){
     pData[idx] = (pData[idx] << 1) | overFlow;
     overFlow = nextOverFlow;
   }
-}
-
-void _reverse_bytes(uint8_t *pDataIn, uint8_t *pDataOut, uint32_t len) {
-    for (uint32_t i = 0; i < len; i++) {
-        pDataOut[i] = pDataIn[len-1-i];
-    }
 }
 
 /******************************** PUBLIC FUNCTION DECLARATIONS ********************************/
@@ -90,7 +84,8 @@ int crypto_init(void){
  * @return 0 on success, 1 on bad length, negative for MXC AES peripheral errors
  */
 int crypto_AES_ECB_encrypt(
-    uint8_t *pKey, mxc_aes_keys_t keyType, uint8_t *pPlaintext, uint8_t *pCiphertext, size_t len
+    const uint8_t *pKey, const mxc_aes_keys_t keyType, 
+    const uint8_t *pPlaintext, uint8_t *pCiphertext, const size_t len
 ) {
     int res = 0;
 
@@ -136,7 +131,8 @@ int crypto_AES_ECB_encrypt(
  * @return 0 on success, 1 on bad length, negative for MXC AES peripheral errors
  */
 int crypto_AES_ECB_decrypt(
-    uint8_t *pKey, mxc_aes_keys_t keyType, uint8_t *pCiphertext, uint8_t *pDecryptedText, size_t len
+    const uint8_t *pKey, const mxc_aes_keys_t keyType, 
+    const uint8_t *pCiphertext, uint8_t *pDecryptedText, const size_t len
 ) {
     int res = 0;
 
@@ -182,8 +178,8 @@ int crypto_AES_ECB_decrypt(
  * @return 0 on success, 1 on bad length, negative for MXC AES peripheral errors
  */
 int crypto_AES_CTR_encrypt(
-    uint8_t *pKey, mxc_aes_keys_t keyType, uint8_t *pNonce, 
-    uint8_t *pPlaintext, uint8_t *pCiphertext, size_t len
+    const uint8_t *pKey, const mxc_aes_keys_t keyType, const uint8_t *pNonce, 
+    const uint8_t *pPlaintext, uint8_t *pCiphertext, const size_t len
 ){    
     size_t numBlocks = (len + CRYPTO_AES_BLOCK_SIZE_BYTE - 1) / CRYPTO_AES_BLOCK_SIZE_BYTE;
     uint8_t counter[CRYPTO_AES_BLOCK_SIZE_BYTE];
@@ -239,8 +235,8 @@ int crypto_AES_CTR_encrypt(
  * @return 0 on success, 1 on bad length, negative for MXC AES peripheral errors
  */
 int crypto_AES_CTR_decrypt(
-  uint8_t *pKey, mxc_aes_keys_t keyType, uint8_t *pNonce, 
-  uint8_t *pCiphertext, uint8_t *pDecryptedText, size_t len
+  const uint8_t *pKey, const mxc_aes_keys_t keyType, const uint8_t *pNonce, 
+  const uint8_t *pCiphertext, uint8_t *pDecryptedText, const size_t len
 ){
     // AES CTR encrypt is the same as decrypt
     return crypto_AES_CTR_encrypt(
@@ -263,8 +259,8 @@ int crypto_AES_CTR_decrypt(
  * @return 0 on success, 1 on bad length, negative for MXC AES peripheral errors
  */
 int crypto_AES_CMAC(
-  uint8_t *pKey, mxc_aes_keys_t keyType,
-  uint8_t *pData, size_t len, uint8_t *pCMAC
+  const uint8_t *pKey, const mxc_aes_keys_t keyType,
+  const uint8_t *pData, const size_t len, uint8_t *pCMAC
 ){  
     //---- Calculate Sub Keys ----//
     uint8_t key1[CRYPTO_AES_BLOCK_SIZE_BYTE] = {0};
@@ -299,8 +295,8 @@ int crypto_AES_CMAC(
     uint8_t oldBlock[CRYPTO_AES_BLOCK_SIZE_BYTE] = {0};
     uint8_t newBlock[CRYPTO_AES_BLOCK_SIZE_BYTE] = {0};
 
-    uint32_t numBlocks = len / CRYPTO_AES_BLOCK_SIZE_BYTE;
-    uint32_t incompleteBlockSize = len % CRYPTO_AES_BLOCK_SIZE_BYTE;
+    size_t numBlocks = len / CRYPTO_AES_BLOCK_SIZE_BYTE;
+    size_t incompleteBlockSize = len % CRYPTO_AES_BLOCK_SIZE_BYTE;
 
     if(incompleteBlockSize != 0){
         numBlocks++;
@@ -308,13 +304,13 @@ int crypto_AES_CMAC(
 
     // Figure out how many full block there are to calculate
     // need to stop before the last block though
-    uint32_t numFullBlocks = 0;
+    size_t numFullBlocks = 0;
     if(numBlocks > 1){
         numFullBlocks = numBlocks-1;
     }
 
     // Perform full block calculations stopping before the last block
-    for(uint32_t i = 0; i < numFullBlocks; i++){
+    for(size_t i = 0; i < numFullBlocks; i++){
         // Copy in next block
         memcpy(
             newBlock, (pData + i*CRYPTO_AES_BLOCK_SIZE_BYTE), 
@@ -367,7 +363,7 @@ int crypto_AES_CMAC(
     return 0;
 }
 
-uint8_t crypto_get_key_len(mxc_aes_keys_t keyType){
+size_t crypto_get_key_len(const mxc_aes_keys_t keyType){
     switch (keyType){
     case MXC_AES_128BITS:
         return 16;
@@ -385,7 +381,7 @@ uint8_t crypto_get_key_len(mxc_aes_keys_t keyType){
 }
 
 // Helper function to print 16-byte hex output
-void crypto_print_hex(const uint8_t *pData, size_t len){
+void crypto_print_hex(const uint8_t *pData, const size_t len){
     printf("0x");
     for (size_t i = 0; i < len; i++) {
         printf("%02x", pData[i]);

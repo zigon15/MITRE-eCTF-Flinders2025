@@ -41,8 +41,8 @@ int crypto_init(void);
  * @return 0 on success, 1 on bad length, negative for MXC AES peripheral errors
  */
 int crypto_AES_ECB_encrypt(
-  uint8_t *pKey, mxc_aes_keys_t keyType, 
-  uint8_t *pPlaintext, uint8_t *pCiphertext, size_t len
+  const uint8_t *pKey, const mxc_aes_keys_t keyType, 
+  const uint8_t *pPlaintext, uint8_t *pCiphertext, const size_t len
 );
 
 /** @brief Decrypts ciphertext with AES256 ECB symmetric cipher using MAX AES peripheral
@@ -58,8 +58,8 @@ int crypto_AES_ECB_encrypt(
  * @return 0 on success, 1 on bad length, negative for MXC AES peripheral errors
  */
 int crypto_AES_ECB_decrypt(
-  uint8_t *pKey, mxc_aes_keys_t keyType, 
-  uint8_t *pCiphertext, uint8_t *pDecryptedText, size_t len
+  const uint8_t *pKey, const mxc_aes_keys_t keyType, 
+  const uint8_t *pCiphertext, uint8_t *pDecryptedText, const size_t len
 );
 
 /** @brief Encrypts plaintext with AES CTR mode
@@ -76,8 +76,8 @@ int crypto_AES_ECB_decrypt(
  * @return 0 on success, 1 on bad length, negative for MXC AES peripheral errors
  */
 int crypto_AES_CTR_encrypt(
-  uint8_t *pKey, mxc_aes_keys_t keyType, uint8_t *pNonce, 
-  uint8_t *pPlaintext, uint8_t *pCiphertext, size_t len
+  const uint8_t *pKey, const mxc_aes_keys_t keyType, const uint8_t *pNonce, 
+  const uint8_t *pPlaintext, uint8_t *pCiphertext, const size_t len
 );
 
 /** @brief Decrypts plaintext with AES CTR mode
@@ -93,8 +93,8 @@ int crypto_AES_CTR_encrypt(
  * @return 0 on success, 1 on bad length, negative for MXC AES peripheral errors
  */
 int crypto_AES_CTR_decrypt(
-  uint8_t *pKey, mxc_aes_keys_t keyType, uint8_t *pNonce, 
-  uint8_t *pCiphertext, uint8_t *pDecryptedText, size_t len
+  const uint8_t *pKey, const mxc_aes_keys_t keyType, const uint8_t *pNonce, 
+  const uint8_t *pCiphertext, uint8_t *pDecryptedText, const size_t len
 );
 
 /** @brief Perform AES256 CMAC using MAX AES peripheral
@@ -111,13 +111,12 @@ int crypto_AES_CTR_decrypt(
  * @return 0 on success, 1 on bad length, negative for MXC AES peripheral errors
  */
 int crypto_AES_CMAC(
-  uint8_t *pKey, mxc_aes_keys_t keyType,
-  uint8_t *pData, size_t len, uint8_t *pCMAC
+  const uint8_t *pKey, const mxc_aes_keys_t keyType,
+  const uint8_t *pData, const size_t len, uint8_t *pCMAC
 );
 
-uint8_t crypto_get_key_len(mxc_aes_keys_t keyType);
-
-void crypto_print_hex(const uint8_t *data, size_t len);
+size_t crypto_get_key_len(const mxc_aes_keys_t keyType);
+void crypto_print_hex(const uint8_t *pData, const size_t len);
 
 #endif
 

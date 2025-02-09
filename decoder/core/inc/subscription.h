@@ -33,6 +33,6 @@
  *
  *  @return 0 upon success, 1 if error
 */
-int subscription_update(pkt_len_t pkt_len, uint8_t *pData);
+int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData);
 
 #endif

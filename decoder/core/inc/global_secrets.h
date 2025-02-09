@@ -16,6 +16,7 @@
 
 #include "decoder.h"
 #include <stdint.h>
+#include <stddef.h>
 
 /******************************** PRIMITIVE TYPES ********************************/
 
@@ -30,11 +31,15 @@
 /******************************** PUBLIC FUNCTION PROTOTYPES ********************************/
 int secrets_init(void);
 
-int secrets_get_subscription_kdf_key(uint8_t *pKey);
-int secrets_get_subscription_cipher_auth_tag(uint8_t *pCipherAuthTag);
-int secrets_get_frame_kdf_key(uint8_t *pKey);
+int secrets_get_subscription_kdf_key(const uint8_t **ppKey);
+int secrets_get_subscription_cipher_auth_tag(const uint8_t **ppCipherAuthTag);
+int secrets_get_frame_kdf_key(const uint8_t **ppKey);
 
-int secrets_is_valid_channel(channel_id_t channel);
-int secrets_get_channel_kdf_key(channel_id_t channel, uint8_t *pKey);
+int secrets_is_valid_channel(const channel_id_t channel);
+int secrets_get_channel_kdf_key(const channel_id_t channel, const uint8_t **ppKey);
+int secrets_get_channel_info(
+    const size_t idx, 
+    const uint16_t **ppChannel, const uint8_t **ppKey
+);
 
 #endif
