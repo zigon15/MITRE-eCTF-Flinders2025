@@ -55,15 +55,15 @@ typedef struct __attribute__((packed)) {
 uint64_t _lastTimeStamp = 0;
 
 /******************************** PRIVATE FUNCTION DECLARATIONS ********************************/
-size_t _expected_packet_len(uint8_t frameLen){
+size_t _expected_packet_len(const uint8_t frameLen){
     return FRAME_PACKET_BASE_LEN + frameLen + 1;
 }
 
-uint8_t* _get_cipher_text(uint8_t *pFrame){
+const uint8_t* _get_cipher_text(const uint8_t *pFrame){
     return (pFrame + FRAME_PACKET_CIPHER_TEXT_OFFSET);
 }
 
-uint8_t* _get_MIC(uint8_t *pFrame, const pkt_len_t pktLen){
+const uint8_t* _get_MIC(const uint8_t *pFrame, const pkt_len_t pktLen){
     return (pFrame + pktLen - FRAME_MIC_LEN);
 }
 
@@ -72,7 +72,7 @@ size_t _calc_cipher_text_len(uint8_t frameLen){
 }
 
 static int _derive_frame_keys(
-    const channel_id_t channel, uint8_t frameDataLen, uint64_t timestamp,
+    const channel_id_t channel, const uint8_t frameDataLen, const uint64_t timestamp,
     const uint8_t *pCtrNonceRand,
     uint8_t *pMicKey, uint8_t *pEncryptionKey
 ){  
@@ -123,7 +123,7 @@ static int _derive_frame_keys(
     uint8_t ctrNonce[CRYPTO_AES_BLOCK_SIZE_BYTE];
     memcpy(ctrNonce+sizeof(uint32_t), pCtrNonceRand, CTR_NONCE_RAND_LEN);
     for(size_t i = 0; i < sizeof(uint32_t); i++){
-        ctrNonce[i] = ((uint8_t*)&timestamp)[3-i];
+        ctrNonce[i] = ((uint8_t*)&timestamp)[i];
     }
 
     uint8_t pCipherText[FRAME_KDF_DATA_LENGTH];
@@ -208,7 +208,7 @@ static int _verify_mic(
         return res;
     }
 
-    uint8_t *pPacketMic = _get_MIC(pFramePacket, pktLen);
+    const uint8_t *pPacketMic = _get_MIC(pFramePacket, pktLen);
 
     // printf("-{I} Input Data: ");
     // crypto_print_hex((uint8_t*)pFramePacket, micInputLength);

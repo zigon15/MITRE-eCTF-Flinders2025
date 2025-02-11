@@ -19,7 +19,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
 from loguru import logger
-from global_secrets import *
+from .global_secrets import *
 
 # Length of each AES key in bits and bytes notation
 AES_KEY_LEN_BIT = 256
@@ -257,12 +257,12 @@ def gen_subscription(
     # Print out subscription update message for debugging
     logger.info(f"Subscription Update Message -> 0x{subscription_update_msg.hex()}")
 
-    for i in range(len(subscription_update_msg)):
-        if i % 8 == 0 and i != 0:
-            print()
+    # for i in range(len(subscription_update_msg)):
+    #     if i % 8 == 0 and i != 0:
+    #         print()
         
-        print(f"0x{subscription_update_msg[i]:02X}, ", end="")
-    print()
+    #     print(f"0x{subscription_update_msg[i]:02X}, ", end="")
+    # print()
 
     # Subscription update will be sent to the decoder with ectf25.tv.subscribe
     return subscription_update_msg

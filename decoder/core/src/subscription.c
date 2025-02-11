@@ -47,7 +47,7 @@ static int _derive_subscription_keys(
     const channel_id_t channel, const uint8_t *pCtrNonceRand,
     uint8_t *pMicKey, uint8_t *pEncryptionKey
 ){  
-    printf("[Subscription] @TASK Derive Keys:\n");
+    // printf("[Subscription] @TASK Derive Keys:\n");
     int res;
     
     uint8_t pTmpMicKey[SUBSCRIPTION_MIC_KEY_LEN];
@@ -56,8 +56,8 @@ static int _derive_subscription_keys(
     // Validate struct size is as expected 
     // - If not, is due to bad code and compiler screwing up the format
     if(sizeof(subscription_kdf_data_t) != SUBSCRIPTION_KDF_DATA_LENGTH){
-        printf("-{E} Bad Subscription KDF Data Struct Length!!\n");
-        printf("-FAIL\n");
+        // printf("-{E} Bad Subscription KDF Data Struct Length!!\n");
+        // printf("-FAIL\n");
         return 1;
     }
 
@@ -71,8 +71,8 @@ static int _derive_subscription_keys(
     const uint8_t *pChannelKdfKey;
     res = secrets_get_channel_kdf_key(channel, &pChannelKdfKey);
     if(res != 0){
-        printf("-{E} Failed to find Channel KDF key for Channel %u!!\n", channel);
-        printf("-FAIL\n");
+        // printf("-{E} Failed to find Channel KDF key for Channel %u!!\n", channel);
+        // printf("-FAIL\n");
         return res;
     }
     memcpy(&subscriptionKdfData.channelKey, pChannelKdfKey, 25);
@@ -81,8 +81,8 @@ static int _derive_subscription_keys(
     const uint8_t *pSubscriptionKdfKey;
     res = secrets_get_subscription_kdf_key(&pSubscriptionKdfKey);
     if(res != 0){
-        printf("-{E} Failed to find Subscription KDF key!!\n");
-        printf("-FAIL\n");
+        // printf("-{E} Failed to find Subscription KDF key!!\n");
+        // printf("-FAIL\n");
         return res;
     }
 
@@ -97,8 +97,8 @@ static int _derive_subscription_keys(
 
     uint8_t pCipherText[SUBSCRIPTION_KDF_DATA_LENGTH];
 
-    printf("-{I} AES CTR Key: ");
-    crypto_print_hex(pSubscriptionKdfKey, SUBSCRIPTION_KDF_KEY_LEN);
+    // printf("-{I} AES CTR Key: ");
+    // crypto_print_hex(pSubscriptionKdfKey, SUBSCRIPTION_KDF_KEY_LEN);
 
     // Perform encryption to calculate MIC key
     subscriptionKdfData.type = SUBSCRIPTION_MIC_KEY_TYPE;
@@ -107,18 +107,18 @@ static int _derive_subscription_keys(
         (uint8_t*)&subscriptionKdfData, pCipherText, SUBSCRIPTION_KDF_DATA_LENGTH
     );
     if(res != 0){
-        printf("-{E} AES CTR Failed for MIC Key KDF!!\n");
-        printf("-FAIL\n");
+        // printf("-{E} AES CTR Failed for MIC Key KDF!!\n");
+        // printf("-FAIL\n");
         return res;
     }
     memcpy(pTmpMicKey, pCipherText, SUBSCRIPTION_MIC_KEY_LEN);
 
-    printf("-{I} MIC AES CTR Nonce: ");
-    crypto_print_hex(ctrNonce, CRYPTO_AES_BLOCK_SIZE_BYTE);
-    printf("-{I} MIC KDF Input Data: ");
-    crypto_print_hex((uint8_t*)&subscriptionKdfData, SUBSCRIPTION_KDF_DATA_LENGTH);
-    printf("-{I} MIC Key: ");
-    crypto_print_hex(pTmpMicKey, SUBSCRIPTION_MIC_KEY_LEN);
+    // printf("-{I} MIC AES CTR Nonce: ");
+    // crypto_print_hex(ctrNonce, CRYPTO_AES_BLOCK_SIZE_BYTE);
+    // printf("-{I} MIC KDF Input Data: ");
+    // crypto_print_hex((uint8_t*)&subscriptionKdfData, SUBSCRIPTION_KDF_DATA_LENGTH);
+    // printf("-{I} MIC Key: ");
+    // crypto_print_hex(pTmpMicKey, SUBSCRIPTION_MIC_KEY_LEN);
 
     // Increment nonce by one for encryption KDF
     for (size_t i = CTR_NONCE_RAND_LEN - 1; i >= 0; i--) {
@@ -135,25 +135,25 @@ static int _derive_subscription_keys(
         (uint8_t*)&subscriptionKdfData, pCipherText, SUBSCRIPTION_KDF_DATA_LENGTH
     );
     if(res != 0){
-        printf("-{E} AES CTR Failed for Encryption Key KDF!!\n");
-        printf("-FAIL\n");
+        // printf("-{E} AES CTR Failed for Encryption Key KDF!!\n");
+        // printf("-FAIL\n");
         return res;
     }
     memcpy(pTmpEncryptionKey, pCipherText, SUBSCRIPTION_ENCRYPTION_KEY_LEN);
 
 
-    printf("-{I} Encryption AES CTR Nonce: ");
-    crypto_print_hex(ctrNonce, CRYPTO_AES_BLOCK_SIZE_BYTE);
-    printf("-{I} Encryption KDF Input Data: ");
-    crypto_print_hex((uint8_t*)&subscriptionKdfData, SUBSCRIPTION_KDF_DATA_LENGTH);
-    printf("-{I} Encryption Key: ");
-    crypto_print_hex(pTmpEncryptionKey, SUBSCRIPTION_ENCRYPTION_KEY_LEN);
+    // printf("-{I} Encryption AES CTR Nonce: ");
+    // crypto_print_hex(ctrNonce, CRYPTO_AES_BLOCK_SIZE_BYTE);
+    // printf("-{I} Encryption KDF Input Data: ");
+    // crypto_print_hex((uint8_t*)&subscriptionKdfData, SUBSCRIPTION_KDF_DATA_LENGTH);
+    // printf("-{I} Encryption Key: ");
+    // crypto_print_hex(pTmpEncryptionKey, SUBSCRIPTION_ENCRYPTION_KEY_LEN);
 
     // Both keys have been successfully derived so copy to the key buffers 
     memcpy(pMicKey, pTmpMicKey, SUBSCRIPTION_MIC_KEY_LEN);
     memcpy(pEncryptionKey, pTmpEncryptionKey, SUBSCRIPTION_ENCRYPTION_KEY_LEN);
 
-    printf("-COMPLETE\n");
+    // printf("-COMPLETE\n");
     return 0;
 }
 
@@ -161,7 +161,7 @@ static int _verify_mic(
     const subscription_update_packet_t *pSubscriptionPacket, 
     const uint8_t *pMicKey
 ){   
-    printf("[Subscription] @TASK Verify MIC:\n");
+    // printf("[Subscription] @TASK Verify MIC:\n");
     int res;
 
     // MIC is calculated on the whole packet minus the MIC
@@ -178,22 +178,22 @@ static int _verify_mic(
         return res;
     }
 
-    printf("-{I} Input Data: ");
-    crypto_print_hex((uint8_t*)pSubscriptionPacket, micInputLength);
-    printf("-{I} Calculated MIC: ");
-    crypto_print_hex(calculatedMic, CRYPTO_CMAC_OUTPUT_SIZE);
-    printf("-{I} Packet MIC: ");
-    crypto_print_hex(pSubscriptionPacket->mic, CRYPTO_CMAC_OUTPUT_SIZE);
+    // printf("-{I} Input Data: ");
+    // crypto_print_hex((uint8_t*)pSubscriptionPacket, micInputLength);
+    // printf("-{I} Calculated MIC: ");
+    // crypto_print_hex(calculatedMic, CRYPTO_CMAC_OUTPUT_SIZE);
+    // printf("-{I} Packet MIC: ");
+    // crypto_print_hex(pSubscriptionPacket->mic, CRYPTO_CMAC_OUTPUT_SIZE);
 
     // Compare MIC
     if (memcmp(calculatedMic, pSubscriptionPacket->mic, CRYPTO_CMAC_OUTPUT_SIZE) != 0){
-        printf("-{E} Calculated MIC Does Not Match Packet MIC!!\n");
-        printf("-FAIL\n");
+        // printf("-{E} Calculated MIC Does Not Match Packet MIC!!\n");
+        // printf("-FAIL\n");
         return 1;
     }
 
-    printf("-{I} Calculated MIC Matches Packet MIC :)\n");
-    printf("-COMPLETE\n");
+    // printf("-{I} Calculated MIC Matches Packet MIC :)\n");
+    // printf("-COMPLETE\n");
     return 0;
 }
 
@@ -201,7 +201,7 @@ static int _decrypt_data(
     const uint8_t *pCtrNonceRand, const uint8_t *pEncryptionKey, const uint8_t *pCipherText,
     timestamp_t *pTimeStampStart, timestamp_t *pTimeStampEnd
 ){
-    printf("[Subscription] @TASK Decrypt Data:\n");
+    // printf("[Subscription] @TASK Decrypt Data:\n");
     int res;
 
     // Assemble CTR nonce
@@ -213,10 +213,10 @@ static int _decrypt_data(
         ctrNonce[i] = 0x00;
     }
 
-    printf("-{I} AES CTR Nonce: ");
-    crypto_print_hex(ctrNonce, CRYPTO_AES_BLOCK_SIZE_BYTE);
-    printf("-{I} AES CTR Key: ");
-    crypto_print_hex(pEncryptionKey, SUBSCRIPTION_ENCRYPTION_KEY_LEN);
+    // printf("-{I} AES CTR Nonce: ");
+    // crypto_print_hex(ctrNonce, CRYPTO_AES_BLOCK_SIZE_BYTE);
+    // printf("-{I} AES CTR Key: ");
+    // crypto_print_hex(pEncryptionKey, SUBSCRIPTION_ENCRYPTION_KEY_LEN);
     
     // Decrypt the data
     uint8_t pDecryptedData[SUBSCRIPTION_CIPHER_TEXT_LEN];
@@ -225,8 +225,8 @@ static int _decrypt_data(
         pCipherText, pDecryptedData, SUBSCRIPTION_CIPHER_TEXT_LEN
     );
     if(res != 0){
-        printf("-{E} AES CTR Failed for Cipher Text Decryption!!\n");
-        printf("-FAIL\n");
+        // printf("-{E} AES CTR Failed for Cipher Text Decryption!!\n");
+        // printf("-FAIL\n");
         return res;
     }
     
@@ -235,28 +235,28 @@ static int _decrypt_data(
     const uint8_t *pExpectedCipherAuthTag;
     res = secrets_get_subscription_cipher_auth_tag(&pExpectedCipherAuthTag);
     if(res != 0){
-        printf("-{E} Failed to Get Subscription Cipher Auth Tag!!\n");
-        printf("-FAIL\n");
+        // printf("-{E} Failed to Get Subscription Cipher Auth Tag!!\n");
+        // printf("-FAIL\n");
         return res;
     }
 
-    printf("-{I} Packet Subscription Cipher Auth Tag: ");
-    crypto_print_hex(pCipherAuthTag, SUBSCRIPTION_CIPHER_AUTH_TAG_LEN);
+    // printf("-{I} Packet Subscription Cipher Auth Tag: ");
+    // crypto_print_hex(pCipherAuthTag, SUBSCRIPTION_CIPHER_AUTH_TAG_LEN);
 
     if (memcmp(pExpectedCipherAuthTag, pCipherAuthTag, SUBSCRIPTION_CIPHER_AUTH_TAG_LEN) != 0){
-        printf("-{E} Decrypted Cipher Auth Tag Does not Match One in Global Secrets!!\n");
-        printf("-FAIL\n");
+        // printf("-{E} Decrypted Cipher Auth Tag Does not Match One in Global Secrets!!\n");
+        // printf("-FAIL\n");
         return 1;
     }
-    printf("-{I} Expected Cipher Auth Tag Matches Packet Cipher Auth Tag :)\n");
+    // printf("-{I} Expected Cipher Auth Tag Matches Packet Cipher Auth Tag :)\n");
 
     // Everything is good to get subscription info and store it
     *pTimeStampStart = *((uint64_t*)pDecryptedData);
     *pTimeStampEnd = *((uint64_t*)(pDecryptedData + sizeof(uint64_t) + SUBSCRIPTION_CIPHER_AUTH_TAG_LEN));
 
-    printf("-{I} Time Stamp Start: %llu\n", *pTimeStampStart);
-    printf("-{I} Time Stamp End: %llu\n", *pTimeStampEnd);
-    printf("-COMPLETE\n");
+    // printf("-{I} Time Stamp Start: %llu\n", *pTimeStampStart);
+    // printf("-{I} Time Stamp End: %llu\n", *pTimeStampEnd);
+    // printf("-COMPLETE\n");
     return 0;
 }
 
@@ -275,17 +275,17 @@ static int _decrypt_data(
 int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData){
     int res;
 
-    printf("[Subscription] @TASK Subscription Update:\n");
+    // printf("[Subscription] @TASK Subscription Update:\n");
 
     // Check length is good
     if((pkt_len != SUBSCRIPTION_UPDATE_MSG_LEN) || (sizeof(subscription_update_packet_t) != SUBSCRIPTION_UPDATE_MSG_LEN)){
         STATUS_LED_RED();
-        printf(
-            "-{E} Bad Subscription Update Msg Length, Expected %u Bytes != Actual %u Bytes\n",
-            SUBSCRIPTION_UPDATE_MSG_LEN, pkt_len
-        );
-        printf("-FAIL [Packet]\n\n");
-        // host_print_error("Subscription Update: Bad subscription update size!!\n");
+        // printf(
+        //     "-{E} Bad Subscription Update Msg Length, Expected %u Bytes != Actual %u Bytes\n",
+        //     SUBSCRIPTION_UPDATE_MSG_LEN, pkt_len
+        // );
+        // printf("-FAIL [Packet]\n\n");
+        host_print_error("Subscription Update: Bad packet size\n");
         return 1;
     }
 
@@ -294,11 +294,12 @@ int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData){
     // Check channel is not the emergency channel
     if (pUpdate->channel == EMERGENCY_CHANNEL) {
         STATUS_LED_RED();
-        printf(
-            "-{E} Can't Subscribe to Emergency Channel!!\n"
-        );
-        printf("-FAIL [Emergency Channel]\n\n");
+        // printf(
+        //     "-{E} Can't Subscribe to Emergency Channel!!\n"
+        // );
+        // printf("-FAIL [Emergency Channel]\n\n");
         // host_print_error("Subscription Update: Cannot subscribe to emergency channel!!\n");
+        host_print_error("Subscription Update: Can't subscribe to emergency\n");
         return 1;
     }
 
@@ -306,20 +307,21 @@ int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData){
     // - Verify that the channel fits in 2 bytes to prevent undefined behaviour later on
     if(pUpdate->channel > 0xFFFF){
         STATUS_LED_RED();
-        printf(
-            "-{E} Channel Number Greater than 0xFFFF!!\n"
-        );
-        printf("-FAIL [Channel Num]\n\n");
+        // printf(
+        //     "-{E} Channel Number Greater than 0xFFFF!!\n"
+        // );
+        // printf("-FAIL [Channel Num]\n\n");
+        host_print_error("Subscription Update: Channel number too big\n");
         return 1;
     }
 
-    printf("-{I} Channel: %u\n", pUpdate->channel);
-    printf("-{I} CTR Nonce Rand: ");
-    crypto_print_hex(pUpdate->ctr_nonce_rand, CTR_NONCE_RAND_LEN);
-    printf("-{I} Cypher Text: ");
-    crypto_print_hex(pUpdate->cipher_text, SUBSCRIPTION_CIPHER_TEXT_LEN);
-    printf("-{I} MIC: ");
-    crypto_print_hex(pUpdate->mic, SUBSCRIPTION_MIC_LEN);
+    // printf("-{I} Channel: %u\n", pUpdate->channel);
+    // printf("-{I} CTR Nonce Rand: ");
+    // crypto_print_hex(pUpdate->ctr_nonce_rand, CTR_NONCE_RAND_LEN);
+    // printf("-{I} Cypher Text: ");
+    // crypto_print_hex(pUpdate->cipher_text, SUBSCRIPTION_CIPHER_TEXT_LEN);
+    // printf("-{I} MIC: ");
+    // crypto_print_hex(pUpdate->mic, SUBSCRIPTION_MIC_LEN);
 
     // Derive MIC and encryption keys
     uint8_t pMicKey[SUBSCRIPTION_MIC_KEY_LEN];
@@ -329,14 +331,16 @@ int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData){
         pMicKey, pEncryptionKey
     );
     if(res != 0){
-        printf("-FAIL [KDF]\n\n");
+        host_print_error("Subscription Update: KDF Failed\n");
+        // printf("-FAIL [KDF]\n\n");
         return res;
     }
 
     // Check packet MIC matches MIC derived from the packet data
     res = _verify_mic(pUpdate, pMicKey);
     if(res != 0){
-        printf("-FAIL [MIC]\n\n");
+        host_print_error("Subscription Update: Bad MIC\n");
+        // printf("-FAIL [MIC]\n\n");
         return res;
     }
 
@@ -349,14 +353,15 @@ int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData){
         &timeStampStart, &timeStampEnd
     );
     if(res != 0){
-        printf("-FAIL [Decrypt]\n\n");
+        host_print_error("Subscription Update: Decryption Failed\n");
+        // printf("-FAIL [Decrypt]\n\n");
         return res;
     }
 
     // Find:
     // - Existing subscription for specified channel
     // - If no existing subscription for channel, then first empty slot
-    printf("-{I} Looking for existing subscription for channel %u or free slot\n", pUpdate->channel);
+    // printf("-{I} Looking for existing subscription for channel %u or free slot\n", pUpdate->channel);
     uint8_t foundIdx = 0;
     uint8_t idx = 0;
     for (size_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
@@ -365,7 +370,7 @@ int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData){
         if (decoder_status.subscribed_channels[i].id == pUpdate->channel) {
             idx = i;
             foundIdx = 1;
-            printf("-{I} Found Existing Subscription :)\n");
+            // printf("-{I} Found Existing Subscription :)\n");
             break;
         }
 
@@ -374,7 +379,7 @@ int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData){
         if(!decoder_status.subscribed_channels[i].active && foundIdx == 0){
             idx = i;
             foundIdx = 1;
-            printf("-{I} Found Empty Slot but Looking for Existing Subscription\n");
+            // printf("-{I} Found Empty Slot but Looking for Existing Subscription\n");
         }
     }
 
@@ -382,8 +387,8 @@ int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData){
     // - No space left in subscriptions array :(
     if (foundIdx == 0) {
         STATUS_LED_RED();
-        host_print_error("Failed to update subscription - max subscriptions installed\n");
-        printf("-FAIL [Max Subscription]\n\n");
+        host_print_error("Subscription Update: Max Subscriptions\n");
+        // printf("-FAIL [Max Subscription]\n\n");
         return 1;
     }
 
@@ -397,9 +402,9 @@ int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData){
     flash_simple_write(FLASH_STATUS_ADDR, &decoder_status, sizeof(flash_entry_t));
 
     // Success message with an empty body
-    // host_write_packet(SUBSCRIBE_MSG, NULL, 0);
+    host_write_packet(SUBSCRIBE_MSG, NULL, 0);
 
-    printf("-COMPLETE\n\n");
+    // printf("-COMPLETE\n\n");
     return 0;
 }
 

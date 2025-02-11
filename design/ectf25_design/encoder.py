@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives.cmac import CMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
-from global_secrets import *
+from .global_secrets import *
 
 # Length of each AES key in bits and bytes notation
 AES_KEY_LEN_BIT = 256
@@ -83,9 +83,9 @@ class Encoder:
 
         # CTR Nonce must have some randomness to ensure derived keys are never the same
         ctr_nonce_rand = os.urandom(FRAME_NONCE_RAND_LEN)
-        ctr_nonce = timestamp.to_bytes(FRAME_NONCE_TIME_STAMP_LEN, byteorder='big') + ctr_nonce_rand
+        ctr_nonce = timestamp.to_bytes(8, byteorder='little')[:FRAME_NONCE_TIME_STAMP_LEN] + ctr_nonce_rand
 
-        logger.info(f"KDF AES CTR Key -> 0x{frame_kdf_key.hex()}")
+        # logger.info(f"KDF AES CTR Key -> 0x{frame_kdf_key.hex()}")
         
         cipher = Cipher(
             algorithms.AES(frame_kdf_key), 
@@ -112,10 +112,10 @@ class Encoder:
         mic_key = encryptor.update(input_bytes) + encryptor.finalize()
         mic_key = mic_key[0:16]
 
-        logger.info(f"MIC AES CTR KDF Nonce Rand -> 0x{ctr_nonce_rand.hex()}")
-        logger.info(f"MIC AES CTR KDF Nonce -> 0x{ctr_nonce.hex()}")
-        logger.info(f"MIC KDF Input Data -> 0x{input_bytes.hex()}")
-        logger.info(f"MIC Key -> 0x{mic_key.hex()}")
+        # logger.info(f"MIC AES CTR KDF Nonce Rand -> 0x{ctr_nonce_rand.hex()}")
+        # logger.info(f"MIC AES CTR KDF Nonce -> 0x{ctr_nonce.hex()}")
+        # logger.info(f"MIC KDF Input Data -> 0x{input_bytes.hex()}")
+        # logger.info(f"MIC Key -> 0x{mic_key.hex()}")
 
         # Input data to derive encryption key from
         # [0]: FRAME_ENCRYPTION_KEY_TYPE (1 byte)
@@ -135,7 +135,7 @@ class Encoder:
         number = int.from_bytes(ctr_nonce_rand, byteorder='big')
         number += 1
         ctr_nonce_rand_p1 = number.to_bytes(FRAME_NONCE_RAND_LEN, byteorder='big')
-        ctr_nonce = timestamp.to_bytes(FRAME_NONCE_TIME_STAMP_LEN, byteorder='big') + ctr_nonce_rand_p1
+        ctr_nonce = timestamp.to_bytes(8, byteorder='little')[:FRAME_NONCE_TIME_STAMP_LEN] + ctr_nonce_rand_p1
 
         # Perform AES encryption
         cipher = Cipher(
@@ -147,10 +147,10 @@ class Encoder:
         encryption_key = encryptor.update(input_bytes) + encryptor.finalize()
         encryption_key = encryption_key[0:16]
 
-        logger.info(f"Encryption AES CTR KDF Nonce Rand -> 0x{ctr_nonce_rand.hex()}")
-        logger.info(f"Encryption AES CTR KDF Nonce -> 0x{ctr_nonce.hex()}")
-        logger.info(f"Encryption KDF Input Data -> 0x{input_bytes.hex()}")
-        logger.info(f"Encryption Key -> 0x{encryption_key.hex()}")
+        # logger.info(f"Encryption AES CTR KDF Nonce Rand -> 0x{ctr_nonce_rand.hex()}")
+        # logger.info(f"Encryption AES CTR KDF Nonce -> 0x{ctr_nonce.hex()}")
+        # logger.info(f"Encryption KDF Input Data -> 0x{input_bytes.hex()}")
+        # logger.info(f"Encryption Key -> 0x{encryption_key.hex()}")
 
         return mic_key, encryption_key, ctr_nonce_rand
     
@@ -178,9 +178,9 @@ class Encoder:
         encryptor = cipher.encryptor()
         cypher_text = encryptor.update(plain_text) + encryptor.finalize()
 
-        logger.info(f"Encryption AES CTR Nonce -> 0x{ctr_nonce.hex()}")
-        logger.info(f"Encryption Input Data -> 0x{plain_text.hex()}")
-        logger.info(f"Encryption Cypher Text -> 0x{cypher_text.hex()}")
+        # logger.info(f"Encryption AES CTR Nonce -> 0x{ctr_nonce.hex()}")
+        # logger.info(f"Encryption Input Data -> 0x{plain_text.hex()}")
+        # logger.info(f"Encryption Cypher Text -> 0x{cypher_text.hex()}")
         
         return cypher_text
     
@@ -259,8 +259,8 @@ class Encoder:
         cmac.update(frame_data_msg)
         mic = cmac.finalize()
 
-        logger.info(f"AES CMAC Input -> 0x{frame_data_msg.hex()}")
-        logger.info(f"MIC -> 0x{mic.hex()}")
+        # logger.info(f"AES CMAC Input -> 0x{frame_data_msg.hex()}")
+        # logger.info(f"MIC -> 0x{mic.hex()}")
 
         assert(len(mic) == AES_CMAC_MIC_LEN)
 
@@ -268,14 +268,14 @@ class Encoder:
         frame_data_msg = frame_data_msg + mic
         
         # Print out frame data message for debugging
-        logger.info(f"Frame Data Message -> 0x{frame_data_msg.hex()}")
+        # logger.info(f"Frame Data Message -> 0x{frame_data_msg.hex()}")
 
-        for i in range(len(frame_data_msg)):
-            if i % 8 == 0 and i != 0:
-                print()
+        # for i in range(len(frame_data_msg)):
+        #     if i % 8 == 0 and i != 0:
+        #         print()
             
-            print(f"0x{frame_data_msg[i]:02X}, ", end="")
-        print()
+        #     print(f"0x{frame_data_msg[i]:02X}, ", end="")
+        # print()
 
         return frame_data_msg
 

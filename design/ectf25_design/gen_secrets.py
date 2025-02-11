@@ -45,6 +45,10 @@ def gen_secrets(channels: list[int]) -> bytes:
     :returns: Contents of the secrets file
     """
 
+    # Emergency channel must always be in deployment
+    if 0 not in channels:
+        channels.append(0)
+
     # Validate that channels fit in required range
     if any(channel < MIN_CHANNEL or channel > MAX_CHANNEL for channel in channels):
         print(f"Channel IDs must be in the range [{MIN_CHANNEL}, {MAX_CHANNEL}]!!")
