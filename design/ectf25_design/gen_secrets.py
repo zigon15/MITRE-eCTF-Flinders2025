@@ -1,5 +1,5 @@
 """
-Author: Ben Janis
+Author: Ben Janis, Simon Rosenzweig
 Date: 2025
 
 This source file is part of an example system for MITRE's 2025 Embedded System CTF

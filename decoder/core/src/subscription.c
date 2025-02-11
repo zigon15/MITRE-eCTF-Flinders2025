@@ -21,6 +21,9 @@
 #define SUBSCRIPTION_CIPHER_TEXT_LEN 32
 #define SUBSCRIPTION_MIC_LEN 16
 
+#define SUBSCRIPTION_MIC_KEY_TYPE 0xC7
+#define SUBSCRIPTION_ENCRYPTION_KEY_TYPE 0x98
+
 /******************************** PRIVATE TYPES ********************************/
 typedef struct __attribute__((packed)) {
     uint8_t type;
@@ -38,9 +41,6 @@ typedef struct __attribute__((packed)) {
 
 /******************************** PRIVATE VARIABLES ********************************/
 const uint32_t _decoder_id = DECODER_ID;
-
-#define SUBSCRIPTION_MIC_KEY_TYPE 0xC7
-#define SUBSCRIPTION_ENCRYPTION_KEY_TYPE 0x98
 
 /******************************** PRIVATE FUNCTION DECLARATIONS ********************************/
 static int _derive_subscription_keys(
@@ -81,7 +81,7 @@ static int _derive_subscription_keys(
     const uint8_t *pSubscriptionKdfKey;
     res = secrets_get_subscription_kdf_key(&pSubscriptionKdfKey);
     if(res != 0){
-        printf("-{E} Failed to find Subscription KDF key for Channel %u!!\n", channel);
+        printf("-{E} Failed to find Subscription KDF key!!\n");
         printf("-FAIL\n");
         return res;
     }
@@ -120,7 +120,7 @@ static int _derive_subscription_keys(
     printf("-{I} MIC Key: ");
     crypto_print_hex(pTmpMicKey, SUBSCRIPTION_MIC_KEY_LEN);
 
-    // Increment nonce by one for subscription KDF
+    // Increment nonce by one for encryption KDF
     for (size_t i = CTR_NONCE_RAND_LEN - 1; i >= 0; i--) {
         ctrNonce[4 + i]++;
         if (ctrNonce[4 + i] != 0){
@@ -259,6 +259,7 @@ static int _decrypt_data(
     printf("-COMPLETE\n");
     return 0;
 }
+
 /******************************** PUBLIC FUNCTION DECLARATIONS ********************************/
 
 /** @brief Updates the channel subscription for a subset of channels.
@@ -298,6 +299,17 @@ int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData){
         );
         printf("-FAIL [Emergency Channel]\n\n");
         // host_print_error("Subscription Update: Cannot subscribe to emergency channel!!\n");
+        return 1;
+    }
+
+    // Channel is 4 bytes in the subscription update structure but max expected is 2 byte in python
+    // - Verify that the channel fits in 2 bytes to prevent undefined behaviour later on
+    if(pUpdate->channel > 0xFFFF){
+        STATUS_LED_RED();
+        printf(
+            "-{E} Channel Number Greater than 0xFFFF!!\n"
+        );
+        printf("-FAIL [Channel Num]\n\n");
         return 1;
     }
 
@@ -389,4 +401,42 @@ int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData){
 
     printf("-COMPLETE\n\n");
     return 0;
+}
+
+/** @brief Checks whether the decoder is subscribed to a given channel
+ *
+ *  @param channel The channel number to be checked.
+ *  @return 1 if the the decoder is subscribed to the channel.  0 if not.
+*/
+int subscription_is_subscribed(channel_id_t channel) {
+    // Check if this is an emergency broadcast message
+    if (channel == EMERGENCY_CHANNEL) {
+        return 1;
+    }
+
+    // Check if the decoder has has a subscription
+    for (size_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
+        if (decoder_status.subscribed_channels[i].id == channel && decoder_status.subscribed_channels[i].active) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/** @brief Prints all the channels the decoder has a subscription for.
+ *
+*/
+void subscription_print_active_channels(void){
+    printf("@INFO Active Channels:\n");
+    for (uint32_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
+        if (decoder_status.subscribed_channels[i].active) {
+            printf(
+                "-{I} [%u] {Channel: %u, Time Stamp Start: %llu, Time Stamp End: %llu}\n",
+                i, decoder_status.subscribed_channels[i].id, 
+                decoder_status.subscribed_channels[i].start_timestamp,
+                decoder_status.subscribed_channels[i].end_timestamp
+            );
+        }
+    }
+    printf("-COMPLETE\n\n");
 }

@@ -127,10 +127,10 @@ int secrets_init(void){
     const uint8_t *pSecretsBinEnd = (uint8_t*)secrets_bin_end;
     const size_t secretsLen = pSecretsBinEnd-pSecretsBin;
 
-    printf("@TASK Check Global Secrets:\n");
+    // printf("@TASK Check Global Secrets:\n");
     // printf("-{I} Secrets Start 0x%X\n", pSecretsBin);
     // printf("-{I} Secrets End 0x%X\n", pSecretsBinEnd);
-    printf("-{I} Secrets Length %u Bytes\n", secretsLen);
+    // printf("-{I} Secrets Length %u Bytes\n", secretsLen);
     
     // for(size_t i = 0; i < secretsLen; i++){
     //     if((i % 16 == 0) && (i != 0)){
@@ -143,22 +143,22 @@ int secrets_init(void){
     //----- Validate format -=---//
     // Check length is good based on number of channels in deployment
     numChannels = *(uint16_t*)(pSecretsBin + NUM_CHANNELS_OFFSET);
-    printf("-{I} Detected %u Channels in Deployment\n", numChannels);
+    // printf("-{I} Detected %u Channels in Deployment\n", numChannels);
 
     if(numChannels > MAX_CHANNEL_COUNT){
-        printf("-{E} Too Many Channels in Deployment, Max %u but Found %u!!\n", MAX_CHANNEL_COUNT, numChannels);
-        printf("-ERROR\n\n");
+        // printf("-{E} Too Many Channels in Deployment, Max %u but Found %u!!\n", MAX_CHANNEL_COUNT, numChannels);
+        // printf("-ERROR\n\n");
         return 1;
     }
-    printf("-{I} Found %u Channels in Deployment, Less Than the Max of %u :)\n", numChannels, MAX_CHANNEL_COUNT);
+    // printf("-{I} Found %u Channels in Deployment, Less Than the Max of %u :)\n", numChannels, MAX_CHANNEL_COUNT);
 
     const uint32_t expectedLen = _num_channels_to_length(numChannels);
     if(expectedLen != secretsLen){
-        printf("-{E} Bad Length -> Expected %u != Actual %u\n", expectedLen, secretsLen);
-        printf("-ERROR\n\n");
+        // printf("-{E} Bad Length -> Expected %u != Actual %u\n", expectedLen, secretsLen);
+        // printf("-ERROR\n\n");
         return 1;
     }
-    printf("-{I} Length %u Bytes Good for %u Channels :)\n", secretsLen, numChannels);
+    // printf("-{I} Length %u Bytes Good for %u Channels :)\n", secretsLen, numChannels);
 
     globalSecretsValid = 1;
 
@@ -166,7 +166,7 @@ int secrets_init(void){
     // TODO: Make sure removed in production!!
     // _print_global_secrets();
 
-    printf("-COMPLETE\n\n");
+    // printf("-COMPLETE\n\n");
     return 0;
 }
 

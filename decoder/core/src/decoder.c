@@ -27,6 +27,7 @@
 #include "simple_uart.h"
 #include "crypto.h"
 #include "subscription.h"
+#include "frame.h"
 
 
 #include "crypto_test.h"
@@ -45,12 +46,6 @@
 // for more information on what struct padding does, see:
 // https://www.gnu.org/software/c-intro-and-ref/manual/html_node/Structure-Layout.html
 #pragma pack(push, 1) 
-
-typedef struct {
-    channel_id_t channel;
-    timestamp_t timestamp;
-    uint8_t data[FRAME_SIZE];
-} frame_packet_t;
 
 typedef struct {
     channel_id_t channel;
@@ -74,46 +69,8 @@ typedef struct {
 flash_entry_t decoder_status;
 
 /**********************************************************
- ******************* UTILITY FUNCTIONS ********************
- **********************************************************/
-
-/** @brief Checks whether the decoder is subscribed to a given channel
- *
- *  @param channel The channel number to be checked.
- *  @return 1 if the the decoder is subscribed to the channel.  0 if not.
-*/
-int is_subscribed(channel_id_t channel) {
-    // Check if this is an emergency broadcast message
-    if (channel == EMERGENCY_CHANNEL) {
-        return 1;
-    }
-    // Check if the decoder has has a subscription
-    for (int i = 0; i < MAX_CHANNEL_COUNT; i++) {
-        if (decoder_status.subscribed_channels[i].id == channel && decoder_status.subscribed_channels[i].active) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
-/**********************************************************
  ********************* CORE FUNCTIONS *********************
  **********************************************************/
-
-void print_active_channels(void){
-    printf("@INFO Active Channels:\n");
-    for (uint32_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
-        if (decoder_status.subscribed_channels[i].active) {
-            printf(
-                "-{I} [%u] {Channel: %u, Time Stamp Start: %llu, Time Stamp End: %llu}\n",
-                i, decoder_status.subscribed_channels[i].id, 
-                decoder_status.subscribed_channels[i].start_timestamp,
-                decoder_status.subscribed_channels[i].end_timestamp
-            );
-        }
-    }
-    printf("-COMPLETE\n\n");
-}
 
 /** @brief Lists out the actively subscribed channels over UART.
  *
@@ -139,43 +96,6 @@ int list_channels(void) {
     // Success message
     host_write_packet(LIST_MSG, &resp, len);
     return 0;
-}
-
-/** @brief Processes a packet containing frame data.
- *
- *  @param pkt_len A pointer to the incoming packet.
- *  @param new_frame A pointer to the incoming packet.
- *
- *  @return 0 if successful.  -1 if data is from unsubscribed channel.
-*/
-int decode(pkt_len_t pkt_len, frame_packet_t *new_frame) {
-    char output_buf[128] = {0};
-    uint16_t frame_size;
-    channel_id_t channel;
-
-    // Frame size is the size of the packet minus the size of non-frame elements
-    frame_size = pkt_len - (sizeof(new_frame->channel) + sizeof(new_frame->timestamp));
-    channel = new_frame->channel;
-
-    // The reference design doesn't use the timestamp, but you may want to in your design
-    // timestamp_t timestamp = new_frame->timestamp;
-
-    // Check that we are subscribed to the channel...
-    host_print_debug("Checking subscription\n");
-    if (is_subscribed(channel)) {
-        host_print_debug("Subscription Valid\n");
-        /* The reference design doesn't need any extra work to decode, but your design likely will.
-        *  Do any extra decoding here before returning the result to the host. */
-        host_write_packet(DECODE_MSG, new_frame->data, frame_size);
-        return 0;
-    } else {
-        STATUS_LED_RED();
-        sprintf(
-            output_buf,
-            "Receiving unsubscribed channel data.  %u\n", channel);
-        host_print_error(output_buf);
-        return -1;
-    }
 }
 
 /** @brief Initializes peripherals for system boot.
@@ -258,8 +178,9 @@ void test_crypto(void){
  *********************** MAIN LOOP ************************
  **********************************************************/
 int main(void) {
-    char output_buf[128] = {0};
-    uint8_t uart_buf[100];
+    // TODO: Check these buffers are the right length!!
+    char output_buf[256] = {0};
+    uint8_t uart_buf[256];
     msg_type_t cmd;
     int result;
     uint16_t pkt_len;
@@ -270,23 +191,34 @@ int main(void) {
     // test_crypto();
     // while(1);
     
-    print_active_channels();
-    unsigned char subscription_update_buff[] = {
-        0x01, 0x00, 0x00, 0x00, 0x06, 0xBD, 0x93, 0x1A, 
-        0x05, 0x38, 0xFE, 0xD1, 0x7C, 0xC1, 0xDC, 0x04, 
-        0x20, 0x11, 0x78, 0x43, 0x63, 0x26, 0xDD, 0x6F, 
-        0x6E, 0x12, 0xAF, 0x64, 0xEC, 0x8C, 0x35, 0xED, 
-        0xEC, 0xC4, 0x46, 0xCB, 0x5A, 0x37, 0xB5, 0x63, 
-        0x54, 0x87, 0x0A, 0x51, 0xDF, 0x69, 0xE4, 0x0F, 
-        0x93, 0xD9, 0x1F, 0x11, 0xA4, 0x54, 0xED, 0x93, 
-        0x7D, 0x85, 0xAD, 0xFF, 0xBA, 0x65, 0x7E, 0x1F
-    };
-    subscription_update(sizeof(subscription_update_buff), subscription_update_buff);
-    print_active_channels();
+//     print_active_channels();
+//     unsigned char subscription_update_buff[] = {
+// 0x01, 0x00, 0x00, 0x00, 0x14, 0xC0, 0xEA, 0xAC, 
+// 0x7F, 0x4E, 0x24, 0x3E, 0x2B, 0x98, 0xAC, 0xA8, 
+// 0x7D, 0xC7, 0x78, 0xAB, 0x74, 0x2D, 0x1D, 0x68, 
+// 0xF8, 0xC7, 0x10, 0xE3, 0x33, 0xF5, 0xF8, 0xFC, 
+// 0x77, 0xC1, 0xE1, 0x11, 0x81, 0x2A, 0x56, 0xA1, 
+// 0xA9, 0x3C, 0x68, 0xA5, 0x11, 0xCF, 0x4E, 0x8B, 
+// 0x67, 0x71, 0xBF, 0x5F, 0x81, 0x28, 0xBA, 0x99, 
+// 0xA4, 0xCA, 0xDE, 0x74, 0x4D, 0xEC, 0xF2, 0x35
+//     };
+//     subscription_update(sizeof(subscription_update_buff), subscription_update_buff);
+//     print_active_channels();
 
-    printf("@INFO Decoder ID: 0x%08X\n", DECODER_ID);
-    while(1);
+    // unsigned char frame_buff[] = {
+    //     0x01, 0x00, 0x00, 0x00, 0xE7, 0xB9, 0x02, 0xFD, 
+    //     0x2C, 0x3B, 0x59, 0x0D, 0x54, 0xB2, 0x25, 0x47, 
+    //     0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+    //     0x0F, 0x43, 0xEB, 0x34, 0x87, 0xFF, 0xEF, 0x8E, 
+    //     0xB4, 0xC8, 0xEE, 0x35, 0x88, 0xEC, 0xA4, 0xA8, 
+    //     0xDC, 0x55, 0x43, 0xF7, 0x02, 0xD4, 0xFD, 0x98, 
+    //     0xD2, 0x04, 0xCE, 0xAB, 0x13, 0xB6, 0x76, 0x1A, 
+    //     0xF0
+    // };
+    // frame_decode(sizeof(frame_buff), frame_buff);
+    // frame_decode(sizeof(frame_buff), frame_buff);
 
+    // printf("@INFO Decoder ID: 0x%08X\n", DECODER_ID);
 
     host_print_debug("Decoder Booted!\n");
 
@@ -316,7 +248,7 @@ int main(void) {
         // Handle decode command
         case DECODE_MSG:
             STATUS_LED_PURPLE();
-            decode(pkt_len, (frame_packet_t *)uart_buf);
+            frame_decode(pkt_len, uart_buf);
             break;
 
         // Handle subscribe command
