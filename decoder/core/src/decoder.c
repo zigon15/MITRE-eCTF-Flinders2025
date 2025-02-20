@@ -38,6 +38,7 @@
  **********************************************************/
 // This is a canary value so we can confirm whether this decoder has booted before
 #define FLASH_FIRST_BOOT 0xDEADBEEF
+#define UART_BUFF_LEN 1024
 
 /**********************************************************
  *********** COMMUNICATION PACKET DEFINITIONS *************
@@ -90,7 +91,7 @@ __attribute__((noreturn)) void __wrap___stack_chk_fail(void) {
 /** @brief Called by default fortify failure handler if buffer overflow is detected
  *
 */
-__attribute__((noreturn)) void __wrap___chk_fail() {
+__attribute__((noreturn)) void __wrap___chk_fail(void) {
     STATUS_LED_RED();
     printf("Buffer Overflow (I think?!?!) [https://github.dev/lattera/glibc/blob/master/debug/chk_fail.c]\n");
     printf("Reseting :(\n");
@@ -186,6 +187,8 @@ void init(void) {
         // If globals secrets fails to initialize, do not continue to execute
         while(1);
     }
+
+    frame_init();
 }
 
 void test_crypto(void){
@@ -209,7 +212,8 @@ void test_crypto(void){
 int main(void) {
     // TODO: Check these buffers are the right length!!
     char output_buf[256] = {0};
-    uint8_t uart_buf[256];
+    uint8_t uart_buf[UART_BUFF_LEN];
+
     msg_type_t cmd;
     int result;
     uint16_t pkt_len;
@@ -264,7 +268,7 @@ int main(void) {
 
         STATUS_LED_GREEN();
 
-        result = host_read_packet(&cmd, uart_buf, &pkt_len);
+        result = host_read_packet(&cmd, uart_buf, UART_BUFF_LEN, &pkt_len);
 
         if (result < 0) {
             STATUS_LED_ERROR();

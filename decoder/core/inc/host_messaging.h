@@ -68,13 +68,14 @@ int host_write_packet(msg_type_t type, const void *buf, uint16_t len);
 
 /** @brief Reads a packet from console UART.
  * 
- *  @param cmd A pointer to the resulting opcode of the packet. Must not be null.
- *  @param buf A pointer to a buffer to store the incoming packet. Can be null.
+ *  @param pCmd A pointer to the resulting opcode of the packet. Must not be null.
+ *  @param pBuf A pointer to a buffer to store the incoming packet. Can be null.
+ *  @param buffLen Length of pBuf buffer.
  *  @param len A pointer to the resulting length of the packet. Can be null.
  * 
  *  @return 0 on success, a negative number on failure
 */
-int host_read_packet(msg_type_t* cmd, void *buf, uint16_t *len);
+int host_read_packet(msg_type_t *pCmd, void *pBuf, size_t buffLen, uint16_t *pPktLen) ;
 
 // Macro definitions to print the specified format for error messages
 #define host_print_error(msg) host_write_packet(ERROR_MSG, msg, strlen(msg))

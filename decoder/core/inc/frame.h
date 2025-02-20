@@ -22,6 +22,12 @@
 /******************************** PUBLIC CONSTANTS ********************************/
 
 /******************************** PUBLIC FUNCTION PROTOTYPES ********************************/
+
+/** @brief Initializes the frame decoder
+ * 
+*/
+void frame_init(void);
+
 /** @brief Decoded the given encrypted frame packet
  *
  *  @param pktLen The length of the incoming packet

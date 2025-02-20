@@ -1,6 +1,6 @@
 /**
  * @file host_messaging.c
- * @author Samuel Meyers
+ * @author Samuel Meyers, Simon Rosenzweig
  * @brief eCTF Host Messaging Implementation 
  * @date 2025
  *
@@ -14,7 +14,6 @@
 #include <stdio.h>
 
 #include "host_messaging.h"
-
 
 /** @brief Read len bytes from UART, acknowledging after every 256 bytes.
  * 
@@ -168,40 +167,58 @@ int host_write_packet(msg_type_t type, const void *buf, uint16_t len) {
 
 /** @brief Reads a packet from console UART.
  * 
- *  @param cmd A pointer to the resulting opcode of the packet. Must not be null.
- *  @param buf A pointer to a buffer to store the incoming packet. Can be null.
+ *  @param pCmd A pointer to the resulting opcode of the packet. Must not be null.
+ *  @param pBuf A pointer to a buffer to store the incoming packet. Can be null.
+ *  @param buffLen Length of pBuf buffer.
  *  @param len A pointer to the resulting length of the packet. Can be null.
  * 
  *  @return 0 on success, a negative number on failure
 */
-int host_read_packet(msg_type_t* cmd, void *buf, uint16_t *len) {
+int host_read_packet(msg_type_t *pCmd, void *pBuf, size_t buffLen, uint16_t *pPktLen) {
     msg_header_t header = {0};
 
-    // cmd must be a valid pointer
-    if (cmd == NULL) {
+    // pCmd must be a valid pointer!!
+    if(pCmd == NULL) {
         return -1;
     }
 
     host_read_header(&header);
 
-    *cmd = header.cmd;
+    *pCmd = header.cmd;
 
-    if (len != NULL) {
-        *len = header.len;
+    // Ack message so no data
+    if(header.cmd == ACK_MSG) {
+        return 0;
     }
 
-    if (header.cmd != ACK_MSG) {
-        host_write_ack();  // ACK the header
-        if (header.len && buf != NULL) {
-            if (host_read_bytes(buf, header.len) < 0) {
-                return -1;
-            }
-        }
-        if (header.len) {
-            if (host_write_ack() < 0) { // ACK the final block (not handled by read_bytes)
-                return -1;
-            }
+    // ACK the header
+    host_write_ack();  
+
+    // Check data fits in buffer
+    if(header.len > buffLen){
+        return -1;
+    }
+
+    if(pPktLen != NULL) {
+        *pPktLen = header.len;
+    }
+
+    // No data attached return
+    if(header.len == 0) {
+        return 0;
+    }
+
+    // Read data into given buffer if required
+    if(pBuf != NULL) {
+        if(host_read_bytes(pBuf, header.len) < 0) {
+            return -1;
         }
     }
+
+    // ACK the final block (not handled by read_bytes)
+    if (host_write_ack() < 0) { 
+        return -1;
+    }
+    
     return 0;
 }

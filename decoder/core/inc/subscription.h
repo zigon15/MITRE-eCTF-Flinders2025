@@ -38,7 +38,7 @@ int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData);
  *  @param channel The channel number to be checked.
  *  @return 1 if the the decoder is subscribed to the channel.  0 if not.
 */
-int subscription_is_subscribed(channel_id_t channel);
+int subscription_is_subscribed(const channel_id_t channel, const timestamp_t timestamp);
 
 /** @brief Prints all the channels the decoder has a subscription for.
  *

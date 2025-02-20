@@ -52,9 +52,62 @@ typedef struct __attribute__((packed)) {
 } frame_packet_t;
 
 /******************************** PRIVATE VARIABLES ********************************/
-uint64_t _lastTimeStamp = 0;
+typedef struct {
+    uint8_t active;
+    channel_id_t channel;
+    timestamp_t last_time_stamp;
+} channel_time_stamp_t;
+
+channel_time_stamp_t _channelTimeStamps[MAX_CHANNEL_COUNT];
 
 /******************************** PRIVATE FUNCTION DECLARATIONS ********************************/
+int _timestamp_find_channel(const channel_id_t channel){
+    for(size_t i = 0; i < MAX_CHANNEL_COUNT; i++){
+        if(_channelTimeStamps[i].active && (_channelTimeStamps[i].channel == channel)){
+            return i;
+        }
+    }
+    return -1;
+}
+
+int _timestamp_check_inc(const channel_id_t channel, const timestamp_t timestamp){
+    int idx = _timestamp_find_channel(channel);
+
+    // Check if channel was found
+    if(idx == -1){
+        return 0;
+    }
+
+    if(timestamp > _channelTimeStamps[idx].last_time_stamp){
+        return 0;
+    }
+
+    return -1;
+}
+
+int _timestamp_update(channel_id_t channel, timestamp_t timestamp){
+    int idx = _timestamp_find_channel(channel);
+
+    // Check the channel was found
+    if(idx >= 0){
+        _channelTimeStamps[idx].last_time_stamp = timestamp;
+        return 0;
+    }
+
+    // Channel not found so add it
+    for(size_t i = 0; i < MAX_CHANNEL_COUNT; i++){
+        if(_channelTimeStamps[i].active == 0){
+            _channelTimeStamps[i].active = 1;
+            _channelTimeStamps[i].channel = channel;
+            _channelTimeStamps[i].last_time_stamp = timestamp;
+            return 0;
+        }
+    }
+
+    // No room to store the channel
+    return -1;
+}
+
 size_t _expected_packet_len(const uint8_t frameLen){
     return FRAME_PACKET_BASE_LEN + frameLen + 1;
 }
@@ -298,6 +351,12 @@ static int _decrypt_data(
 }
 
 /******************************** PUBLIC FUNCTION DECLARATIONS ********************************/
+void frame_init(void){
+    for(size_t i = 0; i < MAX_CHANNEL_COUNT; i++){
+        _channelTimeStamps[i].active = 0;
+    }
+}
+
 /** @brief Decoded the given encrypted frame packet
  *
  *  @param pkt_len The length of the incoming packet
@@ -351,7 +410,7 @@ int frame_decode(const pkt_len_t pktLen, const uint8_t *pData){
     }
 
     // Check device is subscribed to the channel
-    if(subscription_is_subscribed(pFrame->channel) == 0){
+    if(subscription_is_subscribed(pFrame->channel, pFrame->time_stamp) == 0){
         STATUS_LED_RED();
         // printf(
         //     "-{E} Decoder does not have valid subscription for channel %u\n",
@@ -368,7 +427,7 @@ int frame_decode(const pkt_len_t pktLen, const uint8_t *pData){
     // );
 
     // Check timestamp increased
-    if(pFrame->time_stamp <= _lastTimeStamp){
+    if(_timestamp_check_inc(pFrame->channel, pFrame->time_stamp) != 0){
         STATUS_LED_RED();
         // printf(
         //     "-{E} Frame Time Stamp Not Increased (New %llu <= Last %llu)!!\n",
@@ -385,6 +444,9 @@ int frame_decode(const pkt_len_t pktLen, const uint8_t *pData){
     //     pFrame->time_stamp,
     //     _lastTimeStamp
     // );
+
+    // Check timestamp is in subscription start -> end
+
 
     // Derive MIC and encryption keys
     uint8_t pMicKey[FRAME_MIC_KEY_LEN];
@@ -424,7 +486,11 @@ int frame_decode(const pkt_len_t pktLen, const uint8_t *pData){
 
     // Packet has been successfully decoded and verified
     // - Update time stamp tracker
-    _lastTimeStamp = pFrame->time_stamp;
+    res = _timestamp_update(pFrame->channel, pFrame->time_stamp);
+    if(res != 0){
+        host_print_error("Time stamp update bad\n");
+        return res;
+    }
 
     // printf("-COMPLETE\n\n");
     host_write_packet(DECODE_MSG, pFrameData, pFrame->frame_len);

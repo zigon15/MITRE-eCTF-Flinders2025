@@ -428,7 +428,7 @@ int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData){
  *  @param channel The channel number to be checked.
  *  @return 1 if the the decoder is subscribed to the channel.  0 if not.
 */
-int subscription_is_subscribed(channel_id_t channel) {
+int subscription_is_subscribed(const channel_id_t channel, const timestamp_t timestamp) {
     // Check if this is an emergency broadcast message
     if (channel == EMERGENCY_CHANNEL) {
         return 1;
@@ -436,8 +436,11 @@ int subscription_is_subscribed(channel_id_t channel) {
 
     // Check if the decoder has has a subscription
     for (size_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
+        // Check subscription is valid
         if (decoder_status.subscribed_channels[i].id == channel && decoder_status.subscribed_channels[i].active) {
-            return 1;
+            if(timestamp > decoder_status.subscribed_channels[i].start_timestamp && timestamp < decoder_status.subscribed_channels[i].end_timestamp){
+                return 1;
+            }
         }
     }
     return 0;
