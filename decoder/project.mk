@@ -30,12 +30,15 @@ VPATH+=core/drivers/crypto
 
 
 # ****************** Security Compiler Flags *******************
+# There may have been a lot of chatgpt and google here
+# - Maybe check if we screwed something up making it actually more insecure? ;(
+
 # Prevent unexpected stack growth
 PROJ_CFLAGS += -fstack-clash-protection
 
 # Protects against stack-based buffer overflows by adding canaries
 PROJ_CFLAGS += -fstack-protector-strong
-# Need to overide the internal __stack_chk_fail function 
+# Need to overide the internal __stack_chk_fail function which infinite loops
 # - Replaces called to __stack_chk_fail symbol with __wrap___stack_chk_fail
 PROJ_LDFLAGS += -Wl,--wrap=__stack_chk_fail
 
