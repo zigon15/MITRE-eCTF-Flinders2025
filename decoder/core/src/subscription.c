@@ -265,7 +265,7 @@ static int _decrypt_data(
 /** @brief Updates the channel subscription for a subset of channels.
  *
  *  @param pkt_len The length of the incoming packet
- *  @param pData   A pointer to the subscription update packet
+ *  @param pData   A pointer to an array of subscription update packets
  *
  *  @note Take care to note that this system is little endian.
  *
@@ -278,10 +278,10 @@ int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData){
     // printf("[Subscription] @TASK Subscription Update:\n");
 
     // Check length is good
-    if((pkt_len != SUBSCRIPTION_UPDATE_MSG_LEN) || (sizeof(subscription_update_packet_t) != SUBSCRIPTION_UPDATE_MSG_LEN)){
+    if(((pkt_len % SUBSCRIPTION_UPDATE_MSG_LEN) != 0) || (sizeof(subscription_update_packet_t) != SUBSCRIPTION_UPDATE_MSG_LEN)){
         STATUS_LED_RED();
         // printf(
-        //     "-{E} Bad Subscription Update Msg Length, Expected %u Bytes != Actual %u Bytes\n",
+        //     "-{E} Bad Subscription Update Msg Length, Expected Multiple of %u Bytes != Actual %u Bytes\n",
         //     SUBSCRIPTION_UPDATE_MSG_LEN, pkt_len
         // );
         // printf("-FAIL [Packet]\n\n");
@@ -289,117 +289,132 @@ int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData){
         return 1;
     }
 
-    const subscription_update_packet_t *pUpdate = (const subscription_update_packet_t *)pData;
+    size_t numPackets = pkt_len / SUBSCRIPTION_UPDATE_MSG_LEN;
 
-    // Check channel is not the emergency channel
-    if (pUpdate->channel == EMERGENCY_CHANNEL) {
-        STATUS_LED_RED();
-        // printf(
-        //     "-{E} Can't Subscribe to Emergency Channel!!\n"
-        // );
-        // printf("-FAIL [Emergency Channel]\n\n");
-        // host_print_error("Subscription Update: Cannot subscribe to emergency channel!!\n");
-        host_print_error("Subscription Update: Can't subscribe to emergency\n");
-        return 1;
-    }
+    // printf("-{I} %u Subscription Update Packets\n", numPackets);
 
-    // Channel is 4 bytes in the subscription update structure but max expected is 2 byte in python
-    // - Verify that the channel fits in 2 bytes to prevent undefined behaviour later on
-    if(pUpdate->channel > 0xFFFF){
-        STATUS_LED_RED();
-        // printf(
-        //     "-{E} Channel Number Greater than 0xFFFF!!\n"
-        // );
-        // printf("-FAIL [Channel Num]\n\n");
-        host_print_error("Subscription Update: Channel number too big\n");
-        return 1;
-    }
+    // Process all the subscription update packets
+    for(size_t x = 0; x < numPackets; x++){
+        const subscription_update_packet_t *pUpdate = (const subscription_update_packet_t *)(pData + x*sizeof(subscription_update_packet_t));
 
-    // printf("-{I} Channel: %u\n", pUpdate->channel);
-    // printf("-{I} CTR Nonce Rand: ");
-    // crypto_print_hex(pUpdate->ctr_nonce_rand, CTR_NONCE_RAND_LEN);
-    // printf("-{I} Cypher Text: ");
-    // crypto_print_hex(pUpdate->cipher_text, SUBSCRIPTION_CIPHER_TEXT_LEN);
-    // printf("-{I} MIC: ");
-    // crypto_print_hex(pUpdate->mic, SUBSCRIPTION_MIC_LEN);
-
-    // Derive MIC and encryption keys
-    uint8_t pMicKey[SUBSCRIPTION_MIC_KEY_LEN];
-    uint8_t pEncryptionKey[SUBSCRIPTION_ENCRYPTION_KEY_LEN];
-    res = _derive_subscription_keys(
-        pUpdate->channel, pUpdate->ctr_nonce_rand,
-        pMicKey, pEncryptionKey
-    );
-    if(res != 0){
-        host_print_error("Subscription Update: KDF Failed\n");
-        // printf("-FAIL [KDF]\n\n");
-        return res;
-    }
-
-    // Check packet MIC matches MIC derived from the packet data
-    res = _verify_mic(pUpdate, pMicKey);
-    if(res != 0){
-        host_print_error("Subscription Update: Bad MIC\n");
-        // printf("-FAIL [MIC]\n\n");
-        return res;
-    }
-
-    // MIC is good so packet is unchanged
-    // - Decrypt data and add it to subscription list
-    uint64_t timeStampStart;
-    uint64_t timeStampEnd;
-    res = _decrypt_data(
-        pUpdate->ctr_nonce_rand, pEncryptionKey, pUpdate->cipher_text,
-        &timeStampStart, &timeStampEnd
-    );
-    if(res != 0){
-        host_print_error("Subscription Update: Decryption Failed\n");
-        // printf("-FAIL [Decrypt]\n\n");
-        return res;
-    }
-
-    // Find:
-    // - Existing subscription for specified channel
-    // - If no existing subscription for channel, then first empty slot
-    // printf("-{I} Looking for existing subscription for channel %u or free slot\n", pUpdate->channel);
-    uint8_t foundIdx = 0;
-    uint8_t idx = 0;
-    for (size_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
-        // Break instantly if existing subscription for channel is found
-        // - Always update existing subscriptions
-        if (decoder_status.subscribed_channels[i].id == pUpdate->channel) {
-            idx = i;
-            foundIdx = 1;
-            // printf("-{I} Found Existing Subscription :)\n");
-            break;
+        // Check channel is not the emergency channel
+        if (pUpdate->channel == EMERGENCY_CHANNEL) {
+            STATUS_LED_RED();
+            // printf(
+            //     "-{E} Can't Subscribe to Emergency Channel!!\n"
+            // );
+            // printf("-FAIL [Emergency Channel]\n\n");
+            host_print_error("Subscription Update: Cannot subscribe to emergency channel!!\n");
+            host_print_error("Subscription Update: Can't subscribe to emergency\n");
+            return 1;
         }
 
-        // Found empty spot
-        // - Need to keep looping though incase there is an existing subscription for specified channel further along
-        if(!decoder_status.subscribed_channels[i].active && foundIdx == 0){
-            idx = i;
-            foundIdx = 1;
-            // printf("-{I} Found Empty Slot but Looking for Existing Subscription\n");
+        // Channel is 4 bytes in the subscription update structure but max expected is 2 byte in python
+        // - Verify that the channel fits in 2 bytes to prevent undefined behaviour later on
+        if(pUpdate->channel > 0xFFFF){
+            STATUS_LED_RED();
+            // printf(
+            //     "-{E} Channel Number Greater than 0xFFFF!!\n"
+            // );
+            // printf("-FAIL [Channel Num]\n\n");
+            host_print_error("Subscription Update: Channel number too big\n");
+            return 1;
         }
+
+        // printf("-{I} Channel: %u\n", pUpdate->channel);
+        // printf("-{I} CTR Nonce Rand: ");
+        // crypto_print_hex(pUpdate->ctr_nonce_rand, CTR_NONCE_RAND_LEN);
+        // printf("-{I} Cypher Text: ");
+        // crypto_print_hex(pUpdate->cipher_text, SUBSCRIPTION_CIPHER_TEXT_LEN);
+        // printf("-{I} MIC: ");
+        // crypto_print_hex(pUpdate->mic, SUBSCRIPTION_MIC_LEN);
+
+        // Derive MIC and encryption keys
+        uint8_t pMicKey[SUBSCRIPTION_MIC_KEY_LEN];
+        uint8_t pEncryptionKey[SUBSCRIPTION_ENCRYPTION_KEY_LEN];
+        res = _derive_subscription_keys(
+            pUpdate->channel, pUpdate->ctr_nonce_rand,
+            pMicKey, pEncryptionKey
+        );
+        if(res != 0){
+            STATUS_LED_RED();
+            // printf("-FAIL [KDF]\n\n");
+            host_print_error("Subscription Update: KDF Failed\n");
+            return res;
+        }
+
+        // Check packet MIC matches MIC derived from the packet data
+        res = _verify_mic(pUpdate, pMicKey);
+        if(res != 0){;
+            STATUS_LED_RED();
+            // printf("-FAIL [MIC]\n\n");
+            host_print_error("Subscription Update: Bad MIC\n");
+            return res;
+        }
+
+        // MIC is good so packet is unchanged
+        // - Decrypt data and add it to subscription list
+        uint64_t timeStampStart;
+        uint64_t timeStampEnd;
+        res = _decrypt_data(
+            pUpdate->ctr_nonce_rand, pEncryptionKey, pUpdate->cipher_text,
+            &timeStampStart, &timeStampEnd
+        );
+        if(res != 0){
+            STATUS_LED_RED();
+            // printf("-FAIL [Decrypt]\n\n");
+            host_print_error("Subscription Update: Decryption Failed\n");
+            return res;
+        }
+
+        // Find:
+        // - Existing subscription for specified channel
+        // - If no existing subscription for channel, then first empty slot
+        // printf("-{I} Looking for existing subscription for channel %u or free slot\n", pUpdate->channel);
+        uint8_t foundIdx = 0;
+        uint8_t idx = 0;
+        for (size_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
+            // Break instantly if existing subscription for channel is found
+            // - Always update existing subscriptions
+            if (decoder_status.subscribed_channels[i].id == pUpdate->channel) {
+                idx = i;
+                foundIdx = 1;
+                // printf("-{I} Found Existing Subscription :)\n");
+                break;
+            }
+
+            // Found empty spot
+            // - Need to keep looping though incase there is an existing subscription for specified channel further along
+            if(!decoder_status.subscribed_channels[i].active && foundIdx == 0){
+                idx = i;
+                foundIdx = 1;
+                // printf("-{I} Found Empty Slot but Looking for Existing Subscription\n");
+            }
+        }
+
+        // Check if no suitable idx was found
+        // - No space left in subscriptions array :(
+        if (foundIdx == 0) {
+            STATUS_LED_RED();
+            // printf("-FAIL [Max Subscription]\n\n");
+            host_print_error("Subscription Update: Max Subscriptions\n");
+            return 1;
+        }
+
+        // Update subscription info
+        decoder_status.subscribed_channels[idx].active = true;
+        decoder_status.subscribed_channels[idx].id = pUpdate->channel;
+        decoder_status.subscribed_channels[idx].start_timestamp = timeStampStart;
+        decoder_status.subscribed_channels[idx].end_timestamp = timeStampEnd;
+
+        // printf(
+        //     "-{I} Subscription Update Successful {Channel: %u, Start: %llu, End: %llu}\n",
+        //     pUpdate->channel, timeStampStart, timeStampEnd
+        // );
+
+        flash_simple_erase_page(FLASH_STATUS_ADDR);
+        flash_simple_write(FLASH_STATUS_ADDR, &decoder_status, sizeof(flash_entry_t));
     }
-
-    // Check if no suitable idx was found
-    // - No space left in subscriptions array :(
-    if (foundIdx == 0) {
-        STATUS_LED_RED();
-        host_print_error("Subscription Update: Max Subscriptions\n");
-        // printf("-FAIL [Max Subscription]\n\n");
-        return 1;
-    }
-
-    // Update subscription info
-    decoder_status.subscribed_channels[idx].active = true;
-    decoder_status.subscribed_channels[idx].id = pUpdate->channel;
-    decoder_status.subscribed_channels[idx].start_timestamp = timeStampStart;
-    decoder_status.subscribed_channels[idx].end_timestamp = timeStampEnd;
-
-    flash_simple_erase_page(FLASH_STATUS_ADDR);
-    flash_simple_write(FLASH_STATUS_ADDR, &decoder_status, sizeof(flash_entry_t));
 
     // Success message with an empty body
     host_write_packet(SUBSCRIBE_MSG, NULL, 0);

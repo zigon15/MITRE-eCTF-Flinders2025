@@ -360,9 +360,16 @@ int crypto_AES_CMAC(
         newBlock, pCMAC, CRYPTO_AES_BLOCK_SIZE_BYTE
     );
 
+    // Zero all the used memory
     return 0;
 }
 
+/** @brief Returns the length of the give key type in bytes
+ *
+ * @param keyType key type (MXC_AES_128BITS, MXC_AES_192BITS, MXC_AES_256BITS)
+ *
+ * @return Length of key in bytes
+ */
 size_t crypto_get_key_len(const mxc_aes_keys_t keyType){
     switch (keyType){
     case MXC_AES_128BITS:
@@ -380,11 +387,27 @@ size_t crypto_get_key_len(const mxc_aes_keys_t keyType){
     }
 }
 
-// Helper function to print 16-byte hex output
+/** @brief Returns the length of the give key type in bytes
+ *
+ * @param pData Pointer to data buffer to print in hex
+ * @param len Length of pData in bytes
+ */
 void crypto_print_hex(const uint8_t *pData, const size_t len){
     printf("0x");
     for (size_t i = 0; i < len; i++) {
         printf("%02x", pData[i]);
     }
     printf("\n");
+}
+
+/** @brief Securely zeros the given data buffer
+ *
+ * @param pData Pointer to data buffer to zero
+ * @param len Length of pData in bytes
+ */
+void crypto_secure_zero(void *pData, size_t len) {
+    volatile unsigned char *p = pData;
+    while (len--) {
+        *p++ = 0;
+    }
 }

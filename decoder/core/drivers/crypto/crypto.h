@@ -115,8 +115,27 @@ int crypto_AES_CMAC(
   const uint8_t *pData, const size_t len, uint8_t *pCMAC
 );
 
+/** @brief Returns the length of the give key type in bytes
+ *
+ * @param keyType key type (MXC_AES_128BITS, MXC_AES_192BITS, MXC_AES_256BITS)
+ *
+ * @return Length of key in bytes
+ */
 size_t crypto_get_key_len(const mxc_aes_keys_t keyType);
+
+/** @brief Returns the length of the give key type in bytes
+ *
+ * @param pData Pointer to data buffer to print in hex
+ * @param len Length of pData in bytes
+ */
 void crypto_print_hex(const uint8_t *pData, const size_t len);
+
+/** @brief Securely zeros the given data buffer
+ *
+ * @param pData Pointer to data buffer to zero
+ * @param len Length of pData in bytes
+ */
+void crypto_secure_zero(void *pData, size_t len);
 
 #endif
 
