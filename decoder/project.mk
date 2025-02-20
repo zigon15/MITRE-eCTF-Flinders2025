@@ -28,6 +28,33 @@ IPATH+=/global_secrets.S
 VPATH+=core/src/
 VPATH+=core/drivers/crypto
 
+
+# ****************** Security Compiler Flags *******************
+# Prevent unexpected stack growth
+PROJ_CFLAGS += -fstack-clash-protection
+
+# Protects against stack-based buffer overflows by adding canaries
+PROJ_CFLAGS += -fstack-protector-strong
+# Need to overide the internal __stack_chk_fail function 
+# - Replaces called to __stack_chk_fail symbol with __wrap___stack_chk_fail
+PROJ_LDFLAGS += -Wl,--wrap=__stack_chk_fail
+
+PROJ_CFLAGS += -Wstack-protector
+
+# Warn about format security
+PROJ_CFLAGS += -Wformat -Wformat-security
+
+# Warn about variable shadowing
+PROJ_CFLAGS += -Wshadow
+
+# Enables compile-time and runtime checks for buffer overflows
+# - Requires optimization level -O2 or higher.
+PROJ_CFLAGS += -D_FORTIFY_SOURCE=3
+# Need to overide the internal __chk_fail function which gets called on buffer overflow
+# - Replaces called to __chk_fail symbol with __wrap__chk_fail
+PROJ_LDFLAGS += -Wl,--wrap=__chk_fail
+# PROJ_LDFLAGS += -Wl,--wrap=__fortify_fail
+
 # ****************** eCTF Bootloader *******************
 # DO NOT REMOVE
 LINKERFILE=firmware.ld

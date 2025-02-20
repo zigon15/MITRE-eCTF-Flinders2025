@@ -34,8 +34,8 @@ extern const uint8_t secrets_bin_start[];
 extern const uint8_t secrets_bin_end[];
 
 /******************************** PRIVATE VARIABLES ********************************/
-static uint8_t globalSecretsValid = 0;
-static uint16_t numChannels = 0;
+static uint8_t _globalSecretsValid = 0;
+static uint16_t _numChannels = 0;
 
 /******************************** PRIVATE FUNCTION DECLARATIONS ********************************/
 /** @brief Calculated how long the global secrets should be 
@@ -61,15 +61,15 @@ static int _find_channel_info(
     const channel_id_t channel, const uint8_t **ppKey
 ){  
     // Ensure secrets are valid
-    if(globalSecretsValid == 0){
+    if(_globalSecretsValid == 0){
         return 1;
     }
 
     // Loop through all the channel key pairs to see if the channel exists
-    for(size_t i = 0; i < numChannels; i++){
+    for(size_t i = 0; i < _numChannels; i++){
         uint16_t foundChannel = *(uint16_t*)(secrets_bin_start + CHANNEL_INFO_OFFSET + i*CHANNEL_LEN);
         if(channel == foundChannel){
-            *ppKey = secrets_bin_start + CHANNEL_INFO_OFFSET + numChannels*CHANNEL_LEN + i*CHANNEL_KDF_KEY_LEN;
+            *ppKey = secrets_bin_start + CHANNEL_INFO_OFFSET + _numChannels*CHANNEL_LEN + i*CHANNEL_KDF_KEY_LEN;
             return 0;
         }
     }
@@ -81,39 +81,39 @@ static int _find_channel_info(
  *  
  * @note Never call in production!!
 */
-static void _print_global_secrets(void){
-    // Ensure secrets are valid
-    if(globalSecretsValid == 0){
-        return;
-    }
+// static void _print_global_secrets(void){
+//     // Ensure secrets are valid
+//     if(_globalSecretsValid == 0){
+//         return;
+//     }
 
-    const uint8_t *pSubscriptionKdfKey;
-    const uint8_t *pSubscriptionCipherAuthTag;
-    const uint8_t *pFrameKdfKey;
-    secrets_get_subscription_kdf_key(&pSubscriptionKdfKey);
-    secrets_get_subscription_cipher_auth_tag(&pSubscriptionCipherAuthTag);
-    secrets_get_frame_kdf_key(&pFrameKdfKey);
+//     const uint8_t *pSubscriptionKdfKey;
+//     const uint8_t *pSubscriptionCipherAuthTag;
+//     const uint8_t *pFrameKdfKey;
+//     secrets_get_subscription_kdf_key(&pSubscriptionKdfKey);
+//     secrets_get_subscription_cipher_auth_tag(&pSubscriptionCipherAuthTag);
+//     secrets_get_frame_kdf_key(&pFrameKdfKey);
 
-    printf("-{I} Subscription KDF Key: ");
-    crypto_print_hex(pSubscriptionKdfKey, SUBSCRIPTION_KDF_KEY_LEN);
-    printf("-{I} Subscription Cypher Auth Tag: ");
-    crypto_print_hex(pSubscriptionCipherAuthTag, SUBSCRIPTION_CIPHER_AUTH_TAG_LEN);
-    printf("-{I} Frame KDF Key: ");
-    crypto_print_hex(pFrameKdfKey, FRAME_KDF_KEY_LEN);
-    printf("-{I} %u Channels:\n", numChannels);
+//     printf("-{I} Subscription KDF Key: ");
+//     crypto_print_hex(pSubscriptionKdfKey, SUBSCRIPTION_KDF_KEY_LEN);
+//     printf("-{I} Subscription Cypher Auth Tag: ");
+//     crypto_print_hex(pSubscriptionCipherAuthTag, SUBSCRIPTION_CIPHER_AUTH_TAG_LEN);
+//     printf("-{I} Frame KDF Key: ");
+//     crypto_print_hex(pFrameKdfKey, FRAME_KDF_KEY_LEN);
+//     printf("-{I} %u Channels:\n", _numChannels);
 
-    for(size_t i = 0; i < numChannels; i++){
-        const uint16_t *pChannel;
-        const uint8_t *pChannelKey;
-        secrets_get_channel_info(i, &pChannel, &pChannelKey);
+//     for(size_t i = 0; i < _numChannels; i++){
+//         const uint16_t *pChannel;
+//         const uint8_t *pChannelKey;
+//         secrets_get_channel_info(i, &pChannel, &pChannelKey);
 
-        printf(
-            "-[%u] Channel: %u, Key: ", 
-            i, *pChannel
-        );
-        crypto_print_hex(pChannelKey, CHANNEL_KDF_KEY_LEN);
-    }
-}
+//         printf(
+//             "-[%u] Channel: %u, Key: ", 
+//             i, *pChannel
+//         );
+//         crypto_print_hex(pChannelKey, CHANNEL_KDF_KEY_LEN);
+//     }
+// }
 
 /******************************** PUBLIC FUNCTION DECLARATIONS ********************************/
 
@@ -142,25 +142,25 @@ int secrets_init(void){
 
     //----- Validate format -=---//
     // Check length is good based on number of channels in deployment
-    numChannels = *(uint16_t*)(pSecretsBin + NUM_CHANNELS_OFFSET);
-    // printf("-{I} Detected %u Channels in Deployment\n", numChannels);
+    _numChannels = *(uint16_t*)(pSecretsBin + NUM_CHANNELS_OFFSET);
+    // printf("-{I} Detected %u Channels in Deployment\n", _numChannels);
 
-    if(numChannels > MAX_CHANNEL_COUNT){
-        // printf("-{E} Too Many Channels in Deployment, Max %u but Found %u!!\n", MAX_CHANNEL_COUNT, numChannels);
+    if(_numChannels > MAX_CHANNEL_COUNT){
+        // printf("-{E} Too Many Channels in Deployment, Max %u but Found %u!!\n", MAX_CHANNEL_COUNT, _numChannels);
         // printf("-ERROR\n\n");
         return 1;
     }
-    // printf("-{I} Found %u Channels in Deployment, Less Than the Max of %u :)\n", numChannels, MAX_CHANNEL_COUNT);
+    // printf("-{I} Found %u Channels in Deployment, Less Than the Max of %u :)\n", _numChannels, MAX_CHANNEL_COUNT);
 
-    const uint32_t expectedLen = _num_channels_to_length(numChannels);
+    const uint32_t expectedLen = _num_channels_to_length(_numChannels);
     if(expectedLen != secretsLen){
         // printf("-{E} Bad Length -> Expected %u != Actual %u\n", expectedLen, secretsLen);
         // printf("-ERROR\n\n");
         return 1;
     }
-    // printf("-{I} Length %u Bytes Good for %u Channels :)\n", secretsLen, numChannels);
+    // printf("-{I} Length %u Bytes Good for %u Channels :)\n", secretsLen, _numChannels);
 
-    globalSecretsValid = 1;
+    _globalSecretsValid = 1;
 
     // Print global secrets for debug
     // TODO: Make sure removed in production!!
@@ -178,7 +178,7 @@ int secrets_init(void){
 */
 int secrets_get_subscription_kdf_key(const uint8_t **ppKey){
     // Ensure secrets are valid
-    if(globalSecretsValid == 0){
+    if(_globalSecretsValid == 0){
         return 1;
     }
 
@@ -194,7 +194,7 @@ int secrets_get_subscription_kdf_key(const uint8_t **ppKey){
 */
 int secrets_get_subscription_cipher_auth_tag(const uint8_t **ppCipherAuthTag){
     // Ensure secrets are valid
-    if(globalSecretsValid == 0){
+    if(_globalSecretsValid == 0){
         return 1;
     }
 
@@ -210,7 +210,7 @@ int secrets_get_subscription_cipher_auth_tag(const uint8_t **ppCipherAuthTag){
 */
 int secrets_get_frame_kdf_key(const uint8_t **ppKey){
     // Ensure secrets are valid
-    if(globalSecretsValid == 0){
+    if(_globalSecretsValid == 0){
         return 1;
     }
 
@@ -226,7 +226,7 @@ int secrets_get_frame_kdf_key(const uint8_t **ppKey){
 */
 int secrets_is_valid_channel(const channel_id_t channel){
     // Ensure secrets are valid
-    if(globalSecretsValid == 0){
+    if(_globalSecretsValid == 0){
         return 1;
     }
 
@@ -244,7 +244,7 @@ int secrets_is_valid_channel(const channel_id_t channel){
 */
 int secrets_get_channel_kdf_key(const channel_id_t channel, const uint8_t **ppKey){
     // Ensure secrets are valid
-    if(globalSecretsValid == 0){
+    if(_globalSecretsValid == 0){
         return 1;
     }
 
@@ -267,16 +267,16 @@ int secrets_get_channel_info(
     uint16_t const **ppChannel, const uint8_t **ppKey
 ){
     // Ensure secrets are valid
-    if(globalSecretsValid == 0){
+    if(_globalSecretsValid == 0){
         return 1;
     }
 
     // Ensure idx is valid
-    if(idx > numChannels){
+    if(idx > _numChannels){
         return 1;
     }
 
     *ppChannel = (uint16_t*)(secrets_bin_start + CHANNEL_INFO_OFFSET + idx*CHANNEL_LEN);
-    *ppKey = secrets_bin_start + CHANNEL_INFO_OFFSET + numChannels*CHANNEL_LEN + idx*CHANNEL_KDF_KEY_LEN;
+    *ppKey = secrets_bin_start + CHANNEL_INFO_OFFSET + _numChannels*CHANNEL_LEN + idx*CHANNEL_KDF_KEY_LEN;
     return 0;
 }

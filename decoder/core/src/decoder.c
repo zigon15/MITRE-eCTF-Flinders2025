@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "decoder.h"
 #include "mxc_device.h"
@@ -71,6 +72,30 @@ flash_entry_t decoder_status;
 /**********************************************************
  ********************* CORE FUNCTIONS *********************
  **********************************************************/
+
+/** @brief Called if stack smashing is detected
+ *
+*/
+__attribute__((noreturn)) void __wrap___stack_chk_fail(void) {
+    printf("Stack Smashing Detected :(\n");
+    printf("Reseting :(\n");
+
+    // Wait for serial to flush then reset
+    MXC_Delay(1000000);
+    NVIC_SystemReset();
+    while(1);
+}
+
+// Override the default fortify failure handler
+__attribute__((noreturn)) void __wrap___chk_fail() {
+    printf("Buffer Overflow (I think?!?!) [https://github.dev/lattera/glibc/blob/master/debug/chk_fail.c]\n");
+    printf("Reseting :(\n");
+
+    // Wait for serial to flush then reset
+    MXC_Delay(1000000);
+    NVIC_SystemReset();
+    while(1);
+}
 
 /** @brief Lists out the actively subscribed channels over UART.
  *
@@ -174,6 +199,13 @@ void test_crypto(void){
     }
 }
 
+void vulnerableFunction(const char *input) {
+    char buffer[16];
+    // This unsafe call will overflow 'buffer' if 'input' is too long.
+    strcpy(buffer, input);
+    printf("Buffer: %s\n", buffer);
+}
+
 /**********************************************************
  *********************** MAIN LOOP ************************
  **********************************************************/
@@ -187,6 +219,9 @@ int main(void) {
 
     // Initialize the device
     init();
+
+    const char *longInput = "AAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    vulnerableFunction(longInput);
 
     // test_crypto();
     // while(1);

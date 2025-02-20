@@ -433,10 +433,10 @@ int subscription_is_subscribed(channel_id_t channel) {
 */
 void subscription_print_active_channels(void){
     printf("@INFO Active Channels:\n");
-    for (uint32_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
+    for (size_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
         if (decoder_status.subscribed_channels[i].active) {
             printf(
-                "-{I} [%u] {Channel: %u, Time Stamp Start: %llu, Time Stamp End: %llu}\n",
+                "-{I} [%u] {Channel: %lu, Time Stamp Start: %llu, Time Stamp End: %llu}\n",
                 i, decoder_status.subscribed_channels[i].id, 
                 decoder_status.subscribed_channels[i].start_timestamp,
                 decoder_status.subscribed_channels[i].end_timestamp

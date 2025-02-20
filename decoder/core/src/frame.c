@@ -230,8 +230,11 @@ static int _verify_mic(
 }
 
 static int _decrypt_data(
-    const uint8_t *pCtrNonceRand, const uint8_t *pEncryptionKey, const uint8_t *pCipherText,
-    const uint8_t frameLen, uint8_t *pFrameData
+    const uint8_t pCtrNonceRand[CTR_NONCE_RAND_LEN], 
+    const uint8_t pEncryptionKey[FRAME_ENCRYPTION_KEY_LEN], 
+    const uint8_t *pCipherText,
+    const uint8_t frameLen, 
+    uint8_t *pFrameData
 ){
     // printf("[Frame] @TASK Decrypt Data:\n");
     int res;
