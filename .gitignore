@@ -6,3 +6,9 @@ output/*
 
 # Ignore draw.io backup files
 *.drawio.bkp
+
+# Ignore GDB log files
+*.log
+
+# Ignore pycache folders
+**/__pycache__/** 
