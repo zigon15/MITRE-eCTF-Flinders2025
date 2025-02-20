@@ -12,3 +12,6 @@ output/*
 
 # Ignore pycache folders
 **/__pycache__/** 
+
+# Ignore build folders
+ectf25_design.egg-info
