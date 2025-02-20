@@ -1,0 +1,1 @@
+python -m ectf25.utils.stress_test --test-size=10000 decode "/dev/ttyACM0" "./enc_frames.bin"

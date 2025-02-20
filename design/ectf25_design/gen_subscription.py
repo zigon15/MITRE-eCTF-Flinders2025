@@ -19,7 +19,11 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
 from loguru import logger
-from .global_secrets import *
+
+if __name__ == "__main__":
+    from global_secrets import *
+else:
+    from .global_secrets import *
 
 # Length of each AES key in bits and bytes notation
 AES_KEY_LEN_BIT = 256
