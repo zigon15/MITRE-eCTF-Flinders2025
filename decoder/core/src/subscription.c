@@ -438,7 +438,7 @@ int subscription_is_subscribed(const channel_id_t channel, const timestamp_t tim
     for (size_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
         // Check subscription is valid
         if (decoder_status.subscribed_channels[i].id == channel && decoder_status.subscribed_channels[i].active) {
-            if(timestamp > decoder_status.subscribed_channels[i].start_timestamp && timestamp < decoder_status.subscribed_channels[i].end_timestamp){
+            if(timestamp >= decoder_status.subscribed_channels[i].start_timestamp && timestamp <= decoder_status.subscribed_channels[i].end_timestamp){
                 return 1;
             }
         }
