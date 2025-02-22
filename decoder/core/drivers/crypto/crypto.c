@@ -182,8 +182,8 @@ int crypto_AES_CTR_encrypt(
     const uint8_t *pPlaintext, uint8_t *pCiphertext, const size_t len
 ){    
     size_t numBlocks = (len + CRYPTO_AES_BLOCK_SIZE_BYTE - 1) / CRYPTO_AES_BLOCK_SIZE_BYTE;
-    uint8_t counter[CRYPTO_AES_BLOCK_SIZE_BYTE];
-    uint8_t keystream[CRYPTO_AES_BLOCK_SIZE_BYTE];
+    CRYPTO_CREATE_CLEANUP_BUFFER(counter, CRYPTO_AES_BLOCK_SIZE_BYTE);
+    CRYPTO_CREATE_CLEANUP_BUFFER(keystream, CRYPTO_AES_BLOCK_SIZE_BYTE);
 
     // Initialize counter from nonce.
     memcpy(counter, pNonce, CRYPTO_AES_BLOCK_SIZE_BYTE);
@@ -263,8 +263,9 @@ int crypto_AES_CMAC(
   const uint8_t *pData, const size_t len, uint8_t *pCMAC
 ){  
     //---- Calculate Sub Keys ----//
-    uint8_t key1[CRYPTO_AES_BLOCK_SIZE_BYTE] = {0};
-    uint8_t key2[CRYPTO_AES_BLOCK_SIZE_BYTE] = {0};
+    CRYPTO_CREATE_CLEANUP_BUFFER(key1, CRYPTO_AES_BLOCK_SIZE_BYTE);
+    CRYPTO_CREATE_CLEANUP_BUFFER(key2, CRYPTO_AES_BLOCK_SIZE_BYTE);
+
     memset(key1, 0, CRYPTO_AES_BLOCK_SIZE_BYTE);
     memset(key2, 0, CRYPTO_AES_BLOCK_SIZE_BYTE);
 
@@ -292,8 +293,8 @@ int crypto_AES_CMAC(
     }
 
     // Temp buffers
-    uint8_t oldBlock[CRYPTO_AES_BLOCK_SIZE_BYTE] = {0};
-    uint8_t newBlock[CRYPTO_AES_BLOCK_SIZE_BYTE] = {0};
+    CRYPTO_CREATE_CLEANUP_BUFFER(oldBlock, CRYPTO_AES_BLOCK_SIZE_BYTE);
+    CRYPTO_CREATE_CLEANUP_BUFFER(newBlock, CRYPTO_AES_BLOCK_SIZE_BYTE);
 
     size_t numBlocks = len / CRYPTO_AES_BLOCK_SIZE_BYTE;
     size_t incompleteBlockSize = len % CRYPTO_AES_BLOCK_SIZE_BYTE;
@@ -409,5 +410,17 @@ void crypto_secure_zero(void *pData, size_t len) {
     volatile unsigned char *p = pData;
     while (len--) {
         *p++ = 0;
+    }
+}
+
+/** @brief Zeros the given buffer object
+ *
+ * @param pCryptBuf Pointer to crypto buffer
+ */
+void crypto_buffer_cleanup(crypto_buffer_t *pCryptBuf) {
+    if (pCryptBuf->data) {
+        memset(pCryptBuf->data, 0, pCryptBuf->length);
+        pCryptBuf->data = NULL;
+        pCryptBuf->length = 0;
     }
 }

@@ -12,6 +12,7 @@
 #define SUBSCRIPTION_UPDATE_MSG_LEN 64
 
 #define SUBSCRIPTION_KDF_DATA_LENGTH 32
+#define SUBSCRIPTION_KDF_CHANNEL_KEY_LEN 25
 
 #define CTR_NONCE_RAND_LEN 12
 
@@ -27,7 +28,7 @@
 /******************************** PRIVATE TYPES ********************************/
 typedef struct __attribute__((packed)) {
     uint8_t type;
-    uint8_t channelKey[25];
+    uint8_t channelKey[SUBSCRIPTION_KDF_CHANNEL_KEY_LEN];
     uint32_t deviceId;
     uint16_t channel;
 } subscription_kdf_data_t;
@@ -50,8 +51,8 @@ static int _derive_subscription_keys(
     // printf("[Subscription] @TASK Derive Keys:\n");
     int res;
     
-    uint8_t pTmpMicKey[SUBSCRIPTION_MIC_KEY_LEN];
-    uint8_t pTmpEncryptionKey[SUBSCRIPTION_ENCRYPTION_KEY_LEN];
+    CRYPTO_CREATE_CLEANUP_BUFFER(pTmpMicKey, SUBSCRIPTION_MIC_KEY_LEN);
+    CRYPTO_CREATE_CLEANUP_BUFFER(pTmpEncryptionKey, SUBSCRIPTION_ENCRYPTION_KEY_LEN);
 
     // Validate struct size is as expected 
     // - If not, is due to bad code and compiler screwing up the format
@@ -65,7 +66,6 @@ static int _derive_subscription_keys(
     subscriptionKdfData.deviceId = _decoder_id;
     subscriptionKdfData.channel = channel;
 
-
     // Set channel key 
     // Byte offset: 1
     const uint8_t *pChannelKdfKey;
@@ -75,7 +75,7 @@ static int _derive_subscription_keys(
         // printf("-FAIL\n");
         return res;
     }
-    memcpy(&subscriptionKdfData.channelKey, pChannelKdfKey, 25);
+    memcpy(&subscriptionKdfData.channelKey, pChannelKdfKey, SUBSCRIPTION_KDF_CHANNEL_KEY_LEN);
 
     // Get KDF key
     const uint8_t *pSubscriptionKdfKey;
@@ -89,13 +89,13 @@ static int _derive_subscription_keys(
     // Assemble CTR nonce
     // [0]: Decoder ID (4 Bytes, Big Endian)
     // [4]: Nonce Rand (12 Bytes)
-    uint8_t ctrNonce[CRYPTO_AES_BLOCK_SIZE_BYTE];
+    CRYPTO_CREATE_CLEANUP_BUFFER(ctrNonce, CRYPTO_AES_BLOCK_SIZE_BYTE);
     memcpy(ctrNonce+sizeof(uint32_t), pCtrNonceRand, CTR_NONCE_RAND_LEN);
     for(size_t i = 0; i < sizeof(uint32_t); i++){
         ctrNonce[i] = ((uint8_t*)&_decoder_id)[3-i];
     }
 
-    uint8_t pCipherText[SUBSCRIPTION_KDF_DATA_LENGTH];
+    CRYPTO_CREATE_CLEANUP_BUFFER(pCipherText, SUBSCRIPTION_KDF_DATA_LENGTH);
 
     // printf("-{I} AES CTR Key: ");
     // crypto_print_hex(pSubscriptionKdfKey, SUBSCRIPTION_KDF_KEY_LEN);
@@ -167,7 +167,7 @@ static int _verify_mic(
     const uint16_t micInputLength = sizeof(subscription_update_packet_t) - CRYPTO_CMAC_OUTPUT_SIZE;
 
     // Calculate expect MIC on subscription packet
-    uint8_t calculatedMic[CRYPTO_CMAC_OUTPUT_SIZE];
+    CRYPTO_CREATE_CLEANUP_BUFFER(calculatedMic, CRYPTO_CMAC_OUTPUT_SIZE);
     res = crypto_AES_CMAC(
         pMicKey, MXC_AES_256BITS, 
         (uint8_t*)pSubscriptionPacket, micInputLength,
@@ -206,7 +206,7 @@ static int _decrypt_data(
     // Assemble CTR nonce
     // [0]: 0x00 (4 Bytes)
     // [4]: Nonce Rand (12 Bytes)
-    uint8_t ctrNonce[CRYPTO_AES_BLOCK_SIZE_BYTE];
+    CRYPTO_CREATE_CLEANUP_BUFFER(ctrNonce, CRYPTO_AES_BLOCK_SIZE_BYTE);
     memcpy(ctrNonce+sizeof(uint32_t), pCtrNonceRand, CTR_NONCE_RAND_LEN);
     for(size_t i = 0; i < sizeof(uint32_t); i++){
         ctrNonce[i] = 0x00;
@@ -218,7 +218,7 @@ static int _decrypt_data(
     // crypto_print_hex(pEncryptionKey, SUBSCRIPTION_ENCRYPTION_KEY_LEN);
     
     // Decrypt the data
-    uint8_t pDecryptedData[SUBSCRIPTION_CIPHER_TEXT_LEN];
+    CRYPTO_CREATE_CLEANUP_BUFFER(pDecryptedData, SUBSCRIPTION_CIPHER_TEXT_LEN);
     res = crypto_AES_CTR_encrypt(
         pEncryptionKey, MXC_AES_256BITS, ctrNonce,
         pCipherText, pDecryptedData, SUBSCRIPTION_CIPHER_TEXT_LEN
@@ -329,8 +329,8 @@ int subscription_update(const pkt_len_t pkt_len, const uint8_t *pData){
         // crypto_print_hex(pUpdate->mic, SUBSCRIPTION_MIC_LEN);
 
         // Derive MIC and encryption keys
-        uint8_t pMicKey[SUBSCRIPTION_MIC_KEY_LEN];
-        uint8_t pEncryptionKey[SUBSCRIPTION_ENCRYPTION_KEY_LEN];
+        CRYPTO_CREATE_CLEANUP_BUFFER(pMicKey, SUBSCRIPTION_MIC_KEY_LEN);
+        CRYPTO_CREATE_CLEANUP_BUFFER(pEncryptionKey, SUBSCRIPTION_ENCRYPTION_KEY_LEN);
         res = _derive_subscription_keys(
             pUpdate->channel, pUpdate->ctr_nonce_rand,
             pMicKey, pEncryptionKey

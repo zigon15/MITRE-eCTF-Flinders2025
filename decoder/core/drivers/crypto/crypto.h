@@ -21,6 +21,12 @@
 
 #define CRYPTO_CMAC_OUTPUT_SIZE 16
 
+/******************************** PUBLIC TYPES ********************************/
+typedef struct {
+    size_t length;
+    uint8_t *data;
+} crypto_buffer_t;
+
 /******************************** PUBLIC FUNCTION PROTOTYPES ********************************/
 /** @brief Initializes pherpherials required for crypto operations
  *
@@ -130,12 +136,34 @@ size_t crypto_get_key_len(const mxc_aes_keys_t keyType);
  */
 void crypto_print_hex(const uint8_t *pData, const size_t len);
 
-/** @brief Securely zeros the given data buffer
+/** @brief Zeros the given data buffer
  *
  * @param pData Pointer to data buffer to zero
  * @param len Length of pData in bytes
  */
 void crypto_secure_zero(void *pData, size_t len);
+
+/** @brief Zeros the given buffer object
+ *
+ * @param pCryptBuf Pointer to crypto buffer
+ */
+void crypto_buffer_cleanup(crypto_buffer_t *pCryptBuf);
+
+
+/******************************** PUBLIC MACROS ********************************/
+
+/** @brief Creates a buffer which will auto zero when variables 
+ *         goes out of scope to prevent secret leakage
+ *
+ * @param name Name of the buffer
+ * @param len Length of the buffer
+ */
+#define CRYPTO_CREATE_CLEANUP_BUFFER(name, len) \
+  uint8_t name[len]; \
+  crypto_buffer_t name##_internal_obj __attribute__((cleanup(crypto_buffer_cleanup))) = { \
+    .length = len, \
+    .data = name \
+  }
 
 #endif
 

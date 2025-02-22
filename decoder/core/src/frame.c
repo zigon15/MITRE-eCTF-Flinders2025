@@ -132,8 +132,8 @@ static int _derive_frame_keys(
     // printf("[Frame] @TASK Derive Keys:\n");
     int res;
     
-    uint8_t pTmpMicKey[FRAME_MIC_KEY_LEN];
-    uint8_t pTmpEncryptionKey[FRAME_ENCRYPTION_KEY_LEN];
+    CRYPTO_CREATE_CLEANUP_BUFFER(pTmpMicKey, FRAME_MIC_KEY_LEN);
+    CRYPTO_CREATE_CLEANUP_BUFFER(pTmpEncryptionKey, FRAME_ENCRYPTION_KEY_LEN);
 
     // Validate struct size is as expected 
     // - If not, is due to bad code and compiler screwing up the format
@@ -183,18 +183,18 @@ static int _derive_frame_keys(
     // Assemble CTR nonce
     // [0]: Time Stamp (Lower 4 Bytes, little Endian)
     // [4]: Nonce Rand (12 Bytes)
-    uint8_t ctrNonce[CRYPTO_AES_BLOCK_SIZE_BYTE];
+    CRYPTO_CREATE_CLEANUP_BUFFER(ctrNonce, CRYPTO_AES_BLOCK_SIZE_BYTE);
     memcpy(ctrNonce+sizeof(uint32_t), pCtrNonceRand, CTR_NONCE_RAND_LEN);
     for(size_t i = 0; i < sizeof(uint32_t); i++){
         ctrNonce[i] = ((uint8_t*)&timestamp)[i];
     }
 
-    uint8_t pCipherText[FRAME_KDF_DATA_LENGTH];
-
     // printf("-{I} AES CTR Key: ");
     // crypto_print_hex(pFrameKdfKey, SUBSCRIPTION_KDF_KEY_LEN);
 
     //-- MIC KDF --//
+    CRYPTO_CREATE_CLEANUP_BUFFER(pCipherText, FRAME_KDF_DATA_LENGTH);
+
     // Perform KDF to calculate MIC key
     frameKdfData.type = FRAME_MIC_KEY_TYPE;
     res = crypto_AES_CTR_encrypt(
@@ -263,7 +263,7 @@ static int _verify_mic(
     const uint16_t micInputLength = pktLen - CRYPTO_CMAC_OUTPUT_SIZE;
 
     // Calculate expect MIC on subscription packet
-    uint8_t calculatedMic[CRYPTO_CMAC_OUTPUT_SIZE];
+    CRYPTO_CREATE_CLEANUP_BUFFER(calculatedMic, CRYPTO_CMAC_OUTPUT_SIZE);
     res = crypto_AES_CMAC(
         pMicKey, MXC_AES_256BITS, 
         (uint8_t*)pFramePacket, micInputLength,
@@ -307,7 +307,7 @@ static int _decrypt_data(
     // Assemble CTR nonce
     // [0]: 0x00 (4 Bytes)
     // [4]: Nonce Rand (12 Bytes)
-    uint8_t ctrNonce[CRYPTO_AES_BLOCK_SIZE_BYTE];
+    CRYPTO_CREATE_CLEANUP_BUFFER(ctrNonce, CRYPTO_AES_BLOCK_SIZE_BYTE);
     memcpy(ctrNonce+sizeof(uint32_t), pCtrNonceRand, CTR_NONCE_RAND_LEN);
     for(size_t i = 0; i < sizeof(uint32_t); i++){
         ctrNonce[i] = 0x00;
@@ -320,8 +320,7 @@ static int _decrypt_data(
     
     // Decrypt the data
     uint16_t plainTextLen = frameLen + 1;
-
-    uint8_t pDecryptedData[plainTextLen];
+    CRYPTO_CREATE_CLEANUP_BUFFER(pDecryptedData, plainTextLen);
     res = crypto_AES_CTR_encrypt(
         pEncryptionKey, MXC_AES_256BITS, ctrNonce,
         pCipherText, pDecryptedData, plainTextLen
@@ -461,8 +460,9 @@ int frame_decode(const pkt_len_t pktLen, const uint8_t *pData){
 
 
     // Derive MIC and encryption keys
-    uint8_t pMicKey[FRAME_MIC_KEY_LEN];
-    uint8_t pEncryptionKey[FRAME_ENCRYPTION_KEY_LEN];
+    CRYPTO_CREATE_CLEANUP_BUFFER(pMicKey, FRAME_MIC_KEY_LEN);
+    CRYPTO_CREATE_CLEANUP_BUFFER(pEncryptionKey, FRAME_ENCRYPTION_KEY_LEN);
+
     res = _derive_frame_keys(
         pFrame->channel, pFrame->frame_len, pFrame->time_stamp,
         pFrame->ctr_nonce_rand,
@@ -485,7 +485,7 @@ int frame_decode(const pkt_len_t pktLen, const uint8_t *pData){
 
     // MIC is good so packet is unchanged
     // - Decrypt data
-    uint8_t pFrameData[pFrame->frame_len];
+    CRYPTO_CREATE_CLEANUP_BUFFER(pFrameData, pFrame->frame_len);
     res = _decrypt_data(
         pFrame->ctr_nonce_rand, pEncryptionKey, _get_cipher_text(pData),
         pFrame->frame_len, pFrameData
