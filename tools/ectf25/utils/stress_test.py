@@ -39,9 +39,9 @@ def test_encoder(args):
         Frame(
             random.choice(args.channels),  # pick random channel
             random.randbytes(args.frame_size),  # generate random frame
-            x,  # generate microsecond timestamp
+            time.time_ns() // 1000,  # generate microsecond timestamp
         )
-        for x in range(nframes)
+        for _ in range(nframes)
     ]
 
     logger.info("Running stress test...")
@@ -136,7 +136,7 @@ def parse_args():
     parser.add_argument(
         "--channels",
         "-c",
-        action="append",
+        nargs="+",
         type=int,
         default=[0, 1, 2, 3],
         help="Channels to randomly chose from (NOTE: 0 is broadcast)",
@@ -146,7 +146,7 @@ def parse_args():
 
     encode_parser = subparsers.add_parser("encode", help="Test the encoder")
     encode_parser.set_defaults(tester=test_encoder)
-    encode_parser.set_defaults(threshold=1_000.0)
+    encode_parser.set_defaults(threshold=64_000.0)
     encode_parser.add_argument(
         "secrets", type=argparse.FileType("rb"), help="Path to the secrets file"
     )
@@ -159,7 +159,7 @@ def parse_args():
 
     decode_parser = subparsers.add_parser("decode", help="Test the decoder")
     decode_parser.set_defaults(tester=test_decoder)
-    decode_parser.set_defaults(threshold=100.0)
+    decode_parser.set_defaults(threshold=640.0)
     decode_parser.add_argument(
         "port",
         help="Serial port to the Decoder (See https://rules.ectf.mitre.org/2025/getting_started/boot_reference for platform-specific instructions)",
