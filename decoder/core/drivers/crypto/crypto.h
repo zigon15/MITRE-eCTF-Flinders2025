@@ -97,16 +97,16 @@ int crypto_AES_CTR_decrypt(
   const uint8_t *pCiphertext, uint8_t *pDecryptedText, const size_t len
 );
 
-/** @brief Perform AES256 CMAC using MAX AES peripheral
+/** @brief Perform AES CMAC using MAX AES peripheral
  *         https://datatracker.ietf.org/doc/rfc4493/
- *
- * @param pKey    A pointer to a buffer of keyType byte length containing
- *                the key to use for encryption
+ * 
+ * @param pKey A pointer to a buffer of keyType byte length containing
+ *             the key to use for encryption
  * @param keyType key type (MXC_AES_128BITS, MXC_AES_192BITS, MXC_AES_256BITS)
- * @param pData   A pointer to a buffer of length len containing the
- *                data to calculate CMAC on
- * @param len     The length of the pData
- * @param pCMAC    A pointer to a buffer of length 16 to store CMAC in
+ * @param pData A pointer to a buffer of length len containing the
+ *              data to calculate CMAC on
+ * @param len The length of the pData
+ * @param pCMAC A pointer to a buffer of length 16 to store CMAC in
  *
  * @return 0 on success, 1 on bad length, negative for MXC AES peripheral errors
  */

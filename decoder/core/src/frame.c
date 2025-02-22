@@ -16,8 +16,8 @@
 
 #define CTR_NONCE_RAND_LEN 12
 
-#define FRAME_MIC_KEY_LEN 16
-#define FRAME_ENCRYPTION_KEY_LEN 16
+#define FRAME_MIC_KEY_LEN 32
+#define FRAME_ENCRYPTION_KEY_LEN 32
 
 #define FRAME_MIC_LEN 16
 
@@ -143,6 +143,7 @@ static int _derive_frame_keys(
         return 1;
     }
 
+    //-- Assemble KDF Input Packet --//
     frame_kdf_data_t frameKdfData;
     frameKdfData.frameDataLen = frameDataLen;
     
@@ -151,7 +152,7 @@ static int _derive_frame_keys(
     const uint8_t *pChannelKdfKey;
     res = secrets_get_channel_kdf_key(channel, &pChannelKdfKey);
     if(res != 0){
-        // printf("-{E} Failed to find Channel KDF key for Channel %u!!\n", channel);
+        // printf("-{E} Failed to find Channel KDF key for Channel %lu!!\n", channel);
         // printf("-FAIL\n");
         return res;
     }
@@ -161,6 +162,15 @@ static int _derive_frame_keys(
         FRAME_KDF_CHANNEL_KEY_LEN
     );
 
+    // Set timestamp
+    // Byte offset: 22
+    frameKdfData.timeStamp = timestamp;
+
+    // Set channel
+    // Byte offset: 30
+    frameKdfData.channel = channel;
+
+    //-- Prepare for AES CTR --//
     // Get KDF key
     const uint8_t *pFrameKdfKey;
     res = secrets_get_subscription_kdf_key(&pFrameKdfKey);
@@ -171,7 +181,7 @@ static int _derive_frame_keys(
     }
 
     // Assemble CTR nonce
-    // [0]: Time Stamp (Lower 4 Bytes, Big Endian)
+    // [0]: Time Stamp (Lower 4 Bytes, little Endian)
     // [4]: Nonce Rand (12 Bytes)
     uint8_t ctrNonce[CRYPTO_AES_BLOCK_SIZE_BYTE];
     memcpy(ctrNonce+sizeof(uint32_t), pCtrNonceRand, CTR_NONCE_RAND_LEN);
@@ -184,7 +194,8 @@ static int _derive_frame_keys(
     // printf("-{I} AES CTR Key: ");
     // crypto_print_hex(pFrameKdfKey, SUBSCRIPTION_KDF_KEY_LEN);
 
-    // Perform encryption to calculate MIC key
+    //-- MIC KDF --//
+    // Perform KDF to calculate MIC key
     frameKdfData.type = FRAME_MIC_KEY_TYPE;
     res = crypto_AES_CTR_encrypt(
         pFrameKdfKey, MXC_AES_256BITS, ctrNonce,
@@ -204,6 +215,7 @@ static int _derive_frame_keys(
     // printf("-{I} MIC Key: ");
     // crypto_print_hex(pTmpMicKey, FRAME_MIC_KEY_LEN);
 
+    //-- Encryption KDF --//
     // Increment nonce by one for encryption KDF
     for (size_t i = CTR_NONCE_RAND_LEN - 1; i >= 0; i--) {
         ctrNonce[4 + i]++;
@@ -212,7 +224,7 @@ static int _derive_frame_keys(
         }
     }
 
-    // Perform encryption to calculate Encryption key
+    // Perform KDF to calculate Encryption key
     frameKdfData.type = FRAME_ENCRYPTION_KEY_TYPE;
     res = crypto_AES_CTR_encrypt(
         pFrameKdfKey, MXC_AES_256BITS, ctrNonce,
@@ -253,7 +265,7 @@ static int _verify_mic(
     // Calculate expect MIC on subscription packet
     uint8_t calculatedMic[CRYPTO_CMAC_OUTPUT_SIZE];
     res = crypto_AES_CMAC(
-        pMicKey, MXC_AES_128BITS, 
+        pMicKey, MXC_AES_256BITS, 
         (uint8_t*)pFramePacket, micInputLength,
         calculatedMic
     );
@@ -311,7 +323,7 @@ static int _decrypt_data(
 
     uint8_t pDecryptedData[plainTextLen];
     res = crypto_AES_CTR_encrypt(
-        pEncryptionKey, MXC_AES_128BITS, ctrNonce,
+        pEncryptionKey, MXC_AES_256BITS, ctrNonce,
         pCipherText, pDecryptedData, plainTextLen
     );
     if(res != 0){
@@ -373,7 +385,7 @@ int frame_decode(const pkt_len_t pktLen, const uint8_t *pData){
 
     // printf("[Frame] @TASK Decode Frame:\n");
     // printf("-{I} Packet Len: %u\n", pktLen);
-    // printf("-{I} Channel: %u\n", pFrame->channel);
+    // printf("-{I} Channel: %lu\n", pFrame->channel);
     // printf("-{I} Time Stamp: %llu\n", pFrame->time_stamp);
     // printf("-{I} Frame Length: %u\n", pFrame->frame_len);
 

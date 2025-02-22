@@ -15,8 +15,8 @@
 
 #define CTR_NONCE_RAND_LEN 12
 
-#define SUBSCRIPTION_MIC_KEY_LEN 16
-#define SUBSCRIPTION_ENCRYPTION_KEY_LEN 16
+#define SUBSCRIPTION_MIC_KEY_LEN 32
+#define SUBSCRIPTION_ENCRYPTION_KEY_LEN 32
 
 #define SUBSCRIPTION_CIPHER_TEXT_LEN 32
 #define SUBSCRIPTION_MIC_LEN 16
@@ -141,7 +141,6 @@ static int _derive_subscription_keys(
     }
     memcpy(pTmpEncryptionKey, pCipherText, SUBSCRIPTION_ENCRYPTION_KEY_LEN);
 
-
     // printf("-{I} Encryption AES CTR Nonce: ");
     // crypto_print_hex(ctrNonce, CRYPTO_AES_BLOCK_SIZE_BYTE);
     // printf("-{I} Encryption KDF Input Data: ");
@@ -170,7 +169,7 @@ static int _verify_mic(
     // Calculate expect MIC on subscription packet
     uint8_t calculatedMic[CRYPTO_CMAC_OUTPUT_SIZE];
     res = crypto_AES_CMAC(
-        pMicKey, MXC_AES_128BITS, 
+        pMicKey, MXC_AES_256BITS, 
         (uint8_t*)pSubscriptionPacket, micInputLength,
         calculatedMic
     );
@@ -221,7 +220,7 @@ static int _decrypt_data(
     // Decrypt the data
     uint8_t pDecryptedData[SUBSCRIPTION_CIPHER_TEXT_LEN];
     res = crypto_AES_CTR_encrypt(
-        pEncryptionKey, MXC_AES_128BITS, ctrNonce,
+        pEncryptionKey, MXC_AES_256BITS, ctrNonce,
         pCipherText, pDecryptedData, SUBSCRIPTION_CIPHER_TEXT_LEN
     );
     if(res != 0){
