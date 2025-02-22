@@ -94,7 +94,7 @@ def subscription_derive_keys(
     # Perform AES encryption
     encryptor = cipher.encryptor()
     mic_key = encryptor.update(input_bytes) + encryptor.finalize()
-    mic_key = mic_key[0:16]
+    mic_key = mic_key
 
     logger.info(f"MIC AES CTR KDF Nonce -> 0x{ctr_nonce.hex()}")
     logger.info(f"MIC KDF Input Data -> 0x{input_bytes.hex()}")
@@ -127,7 +127,7 @@ def subscription_derive_keys(
     )
     encryptor = cipher.encryptor()
     encryption_key = encryptor.update(input_bytes) + encryptor.finalize()
-    encryption_key = encryption_key[0:16]
+    encryption_key = encryption_key
 
     logger.info(f"Encryption AES CTR KDF Nonce -> 0x{ctr_nonce.hex()}")
     logger.info(f"Encryption KDF Input Data -> 0x{input_bytes.hex()}")
@@ -229,7 +229,7 @@ def gen_subscription(
     # [0]: Channel (4 Bytes)
     # [4]: AES CTR nonce random bytes (12 Bytes)
     # [16]: Cipher text (32 Bytes)
-    # [38]: MIC (16 bytes) [Added later as MIC is calculated on whole packet]
+    # [48]: MIC (16 bytes) [Added later as MIC is calculated on whole packet]
     # 4 + 12 + 32 + 16 = 64
     subscription_update_msg = struct.pack(
         "<I12s32s", 

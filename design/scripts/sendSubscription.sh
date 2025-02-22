@@ -1,1 +1,1 @@
-python -m ectf25.tv.subscribe ../output/subscription.bin /dev/ttyACM0
+python -m ectf25.tv.subscribe ./output/subscription.bin /dev/ttyACM0

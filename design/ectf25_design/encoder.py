@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives.cmac import CMAC
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
-from .global_secrets import *
+from global_secrets import *
 
 # Length of each AES key in bits and bytes notation
 AES_KEY_LEN_BIT = 256
@@ -110,7 +110,7 @@ class Encoder:
         # Perform AES encryption
         encryptor = cipher.encryptor()
         mic_key = encryptor.update(input_bytes) + encryptor.finalize()
-        mic_key = mic_key[0:16]
+        mic_key = mic_key
 
         # logger.info(f"MIC AES CTR KDF Nonce Rand -> 0x{ctr_nonce_rand.hex()}")
         # logger.info(f"MIC AES CTR KDF Nonce -> 0x{ctr_nonce.hex()}")
@@ -145,7 +145,7 @@ class Encoder:
         )
         encryptor = cipher.encryptor()
         encryption_key = encryptor.update(input_bytes) + encryptor.finalize()
-        encryption_key = encryption_key[0:16]
+        encryption_key = encryption_key
 
         # logger.info(f"Encryption AES CTR KDF Nonce Rand -> 0x{ctr_nonce_rand.hex()}")
         # logger.info(f"Encryption AES CTR KDF Nonce -> 0x{ctr_nonce.hex()}")
