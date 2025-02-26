@@ -50,9 +50,11 @@ def gen_secrets(channels: list[int]) -> bytes:
         channels.append(0)
 
     # Validate that channels fit in required range
-    if any(channel < MIN_CHANNEL or channel > MAX_CHANNEL for channel in channels):
-        print(f"Channel IDs must be in the range [{MIN_CHANNEL}, {MAX_CHANNEL}]!!")
-        exit()
+    for channel in channels:
+        if channel < MIN_CHANNEL or channel > MAX_CHANNEL:
+            print(f"Channel IDs must be in the range [{MIN_CHANNEL}, {MAX_CHANNEL}] -> ${channels}!!")
+            print(f"-> Bad Channel: {channel}")
+            exit()
 
     # Validate that the number of channels fit in required range
     if len(channels) > MAX_NUM_CHANNELS:
