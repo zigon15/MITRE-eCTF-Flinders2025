@@ -11,13 +11,16 @@
  * @copyright Copyright (c) 2025 The MITRE Corporation
  */
 
-#ifndef CRYPTO_MANAGE_H
-#define CRYPTO_MANAGE_H
+#ifndef CRYPTO_MANAGER_H
+#define CRYPTO_MANAGER_H
 
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 #include "aes.h"
+
+//----- Public Constants -----//
+#define CRYPTO_MANAGER_STACK_SIZE 4096
 
 //----- Public Types -----//
 enum CryptoManager_KeySource {
@@ -41,7 +44,7 @@ typedef struct {
   uint8_t *pNonce;
 
   // Key source for KDF
-  CryptoManager_KeySource keySource;
+  uint8_t keySource;
 } CryptoManager_KeyDerivationData;
 
 // Encrypt data structure
@@ -90,8 +93,8 @@ typedef struct {
 //----- Public Functions -----//
 void cryptoManager_vEncryptionTask(void *pvParameters);
 
-QueueHandle_t cryptoManager_EncryptionQueue();
-QueueHandle_t cryptoManager_SignatureCheckQueue();
+QueueHandle_t cryptoManager_EncryptionQueue(void);
+QueueHandle_t cryptoManager_SignatureCheckQueue(void);
 
 
 #endif

@@ -39,11 +39,15 @@
 #include "led.h"
 #include "board.h"
 
+// Include tasks
+#include "crypto_manager.h"
+
 /* FreeRTOS+CLI */
 void vRegisterCLICommands(void);
 
 /* Task IDs */
 TaskHandle_t cmd_task_id;
+TaskHandle_t crypto_manager_task_id;
 
 /* Stringification macros */
 #define STRING(x) STRING_(x)
@@ -194,20 +198,34 @@ int main(void){
     printf("\n-=- %s FreeRTOS (%s) Demo -=-\n", STRING(TARGET), tskKERNEL_VERSION_NUMBER);
     printf("SystemCoreClock = %d\n", SystemCoreClock);
 
-    // Configure tasks 
-    if (
-        xTaskCreate(
-            vCmdLineTask, (const char *)"CmdLineTask",
-            configMINIMAL_STACK_SIZE + CMD_LINE_BUF_SIZE + OUTPUT_BUF_SIZE, NULL,
-            tskIDLE_PRIORITY + 1, &cmd_task_id
-        ) != pdPASS
-    ){
-        printf("xTaskCreate() failed to create a task.\n");
-    } else {
-        /* Start scheduler */
-        printf("Starting scheduler.\n");
-        vTaskStartScheduler();
+    //-- Configure Tasks --// 
+    int ret;
+
+    // Command line task
+    ret = xTaskCreate(
+        vCmdLineTask, (const char *)"CmdLineTask",
+        configMINIMAL_STACK_SIZE + CMD_LINE_BUF_SIZE + OUTPUT_BUF_SIZE, NULL,
+        tskIDLE_PRIORITY + 1, &cmd_task_id
+    );
+    if (ret != pdPASS){
+        printf("@ERROR xTaskCreate() failed to create CmdLineTask.\n");
+        while(1);
     }
+    
+    // Crypto manager task
+    ret = xTaskCreate(
+        cryptoManager_vEncryptionTask, (const char *)"CryptoManager",
+        CRYPTO_MANAGER_STACK_SIZE, NULL,
+        tskIDLE_PRIORITY + 0, &crypto_manager_task_id
+    );
+    if (ret != pdPASS){
+        printf("@ERROR xTaskCreate() failed to create CryptoManager.\n");
+        while(1);
+    }
+
+    // Start scheduler
+    printf("Starting scheduler.\n");
+    vTaskStartScheduler();
 
     // This code is only reached if the scheduler failed to start
     printf("ERROR: FreeRTOS did not start due to above error!\n");

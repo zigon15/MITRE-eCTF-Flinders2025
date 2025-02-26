@@ -1,5 +1,4 @@
-#include "cryptomanager.h"
-
+#include "crypto_manager.h"
 #include "crypto.h"
 
 #include "FreeRTOS.h"
@@ -7,6 +6,10 @@
 #include "queue.h"
 #include "string.h"
 
+//----- Private Constants -----//
+#define QUEUE_LENGTH 16
+
+//----- Private Variables -----//
 // Global encryption request queue (holds pointers or structures)
 QueueHandle_t xEncryptionQueue;
 
@@ -41,7 +44,16 @@ uint8_t _signatureCheck(CryptoManager_SignatureCheck *pSigCheck){
 }
 
 //----- Public Functions -----//
+
 void cryptoManager_vEncryptionTask(void *pvParameters){
+    // Setup queues
+    xEncryptionQueue = xQueueCreate(
+        QUEUE_LENGTH, sizeof(CryptoManager_EncryptionRequest)
+    );
+    xSignatureCheckQueue = xQueueCreate(
+        QUEUE_LENGTH, sizeof(CryptoManager_EncryptionRequest)
+    );
+
     CryptoManager_EncryptionRequest encReq;
     CryptoManager_SignatureCheckRequest sigCheckReq;
 
@@ -72,10 +84,10 @@ void cryptoManager_vEncryptionTask(void *pvParameters){
     }
 }
 
-QueueHandle_t cryptoManager_EncryptionQueue(){
+QueueHandle_t cryptoManager_EncryptionQueue(void){
     return xEncryptionQueue;
 }
 
-QueueHandle_t cryptoManager_SignatureCheckQueue(){
+QueueHandle_t cryptoManager_SignatureCheckQueue(void){
     return xSignatureCheckQueue;
 }

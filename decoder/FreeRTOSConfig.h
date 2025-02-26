@@ -22,6 +22,7 @@
  #define EXAMPLES_MAX78000_FREERTOSDEMO_FREERTOSCONFIG_H_
  
  #include <stdint.h>
+ #include <stdio.h>
  #include "max78000.h"
  
  // MSDK Debug flags
@@ -37,7 +38,7 @@
  #define configASSERT(x)           \
      if ((x) == 0) {               \
          taskDISABLE_INTERRUPTS(); \
-         for (;;) {}               \
+         for (;;) {printf("@ERROR ASSERT!!\n");}               \
      }
  #define configENABLE_BACKWARD_COMPATIBILITY 1
  #define configQUEUE_REGISTRY_SIZE 10
@@ -45,6 +46,7 @@
  
  #endif
  
+
  /*-----------------------------------------------------------
   * Application specific definitions.
   *
