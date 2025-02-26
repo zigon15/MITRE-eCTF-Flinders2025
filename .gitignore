@@ -1,0 +1,17 @@
+# Ignore global secrets folders
+output/*
+
+# Ignore all build directories
+**/build/**
+
+# Ignore draw.io backup files
+*.drawio.bkp
+
+# Ignore GDB log files
+*.log
+
+# Ignore pycache folders
+**/__pycache__/** 
+
+# Ignore build folders
+ectf25_design.egg-info

@@ -1,0 +1,1 @@
+make -r -j 8 release DECODER_ID=0xDEADBEEF PROJECT="decoder_release" DEV_BUILD=1

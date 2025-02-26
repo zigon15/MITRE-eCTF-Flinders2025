@@ -18,7 +18,6 @@
     "board":"EvKit_V1",
 
     "project_name":"${workspaceFolderBasename}",
-
     "program_file":"${config:project_name}.elf",
     "symbol_file":"${config:program_file}",
 
@@ -53,13 +52,7 @@
         "${config:MAXIM_PATH}/Libraries/MiscDrivers/LED",
         "${config:MAXIM_PATH}/Libraries/MiscDrivers/PMIC",
         "${config:MAXIM_PATH}/Libraries/MiscDrivers/PushButton",
-        "${config:MAXIM_PATH}/Libraries/MiscDrivers/Touchscreen",
-        "${config:MAXIM_PATH}/Libraries/FreeRTOS-Plus/Source/FreeRTOS-Plus-CLI",
-        "${config:MAXIM_PATH}/Libraries/MiscDrivers/EEPROM",
-        "${config:MAXIM_PATH}/Libraries/MiscDrivers/CODEC",
-        "${config:MAXIM_PATH}/Libraries/FreeRTOS/Source/include",
-        "${config:MAXIM_PATH}/Libraries/FreeRTOS/Source/portable/GCC/ARM_CM4F",
-        "${config:MAXIM_PATH}/Libraries/FreeRTOS/Source/portable/GCC/RISC-V"
+        "${config:MAXIM_PATH}/Libraries/MiscDrivers/Touchscreen"
     ],
     "C_Cpp.default.browse.path": [
         "${workspaceFolder}",
@@ -73,20 +66,18 @@
         "${config:MAXIM_PATH}/Libraries/MiscDrivers/PMIC",
         "${config:MAXIM_PATH}/Libraries/MiscDrivers/PushButton",
         "${config:MAXIM_PATH}/Libraries/MiscDrivers/Touchscreen",
-        "${config:MAXIM_PATH}/Libraries/MiscDrivers",
-        "${config:MAXIM_PATH}/Libraries/FreeRTOS-Plus/Source/FreeRTOS-Plus-CLI",
-        "${config:MAXIM_PATH}/Libraries/MiscDrivers/ADC",
-        "${config:MAXIM_PATH}/Libraries/MiscDrivers/EEPROM",
-        "${config:MAXIM_PATH}/Libraries/MiscDrivers/CODEC",
-        "${config:MAXIM_PATH}/Libraries/FreeRTOS/Source",
-        "${config:MAXIM_PATH}/Libraries/FreeRTOS/Source/portable/GCC/ARM_CM4F",
-        "${config:MAXIM_PATH}/Libraries/FreeRTOS/Source/portable/GCC/RISC-V"
+        "${config:MAXIM_PATH}/Libraries/MiscDrivers"
     ],
     "C_Cpp.default.defines": [
         
     ],
     "C_Cpp.default.forcedInclude": [
         "${workspaceFolder}/build/project_defines.h"
-    ]
+    ],
+    "C_Cpp.errorSquiggles": "disabled",
+    "files.associations": {
+        "string.h": "c"
+    },
+    "makefile.configureOnOpen": false
 }
 

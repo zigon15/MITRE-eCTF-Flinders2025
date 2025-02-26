@@ -1,0 +1,1 @@
+make -r -j 8 DEBUG=1 DECODER_ID=0xDEADBEEF PROJECT="decoder" DEV_BUILD=1

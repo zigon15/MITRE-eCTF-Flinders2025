@@ -3,10 +3,12 @@
         {
             "name": "Win32",
             "includePath": [
-                "${default}"
+                "${default}",
+                "${workspaceFolder}/core/inc"
             ],
             "defines": [
-                "${default}"
+                "${default}",
+                "${workspaceFolder}/core/inc"
             ],
             "intelliSenseMode": "gcc-arm",
             "compilerPath": "${config:ARM_GCC_path}/bin/arm-none-eabi-gcc.exe",
@@ -19,10 +21,12 @@
         {
             "name": "Linux",
             "includePath": [
-                "${default}"
+                "${default}",
+                "${workspaceFolder}/core/inc"
             ],
             "defines": [
-                "${default}"
+                "${default}",
+                "${workspaceFolder}/core/inc"
             ],
             "intelliSenseMode": "gcc-arm",
             "compilerPath": "${config:ARM_GCC_path}/bin/arm-none-eabi-gcc",
@@ -35,10 +39,12 @@
         {
             "name": "Mac",
             "includePath": [
-                "${default}"
+                "${default}",
+                "${workspaceFolder}/core/inc"
             ],
             "defines": [
-                "${default}"
+                "${default}",
+                "${workspaceFolder}/core/inc"
             ],
             "intelliSenseMode": "gcc-arm",
             "compilerPath": "${config:ARM_GCC_path}/bin/arm-none-eabi-gcc",

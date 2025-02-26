@@ -42,14 +42,8 @@
 /* FreeRTOS+CLI */
 void vRegisterCLICommands(void);
 
-/* Mutual exclusion (mutex) semaphores */
-SemaphoreHandle_t xGPIOmutex;
-
 /* Task IDs */
 TaskHandle_t cmd_task_id;
-
-/* Enables/disables tick-less mode */
-unsigned int disable_tickless = 1;
 
 /* Stringification macros */
 #define STRING(x) STRING_(x)
@@ -74,112 +68,6 @@ mxc_gpio_cfg_t uart_cts_isr;
 #define CMD_LINE_BUF_SIZE 80
 #define OUTPUT_BUF_SIZE 512
 
-/* Defined in freertos_tickless.c */
-extern void wutHitSnooze(void);
-
-/* =| vTask0 |============================================
- *
- * This task blinks LED0 at a 0.5Hz rate, and does not
- *  drift due to the use of vTaskDelayUntil(). It may have
- *  jitter, however, due to any higher-priority task or
- *  interrupt causing delays in scheduling.
- *
- * =======================================================
- */
-void vTask0(void *pvParameters)
-{
-    TickType_t xLastWakeTime;
-    unsigned int x = LED_OFF;
-
-    /* Get task start time */
-    xLastWakeTime = xTaskGetTickCount();
-
-    while (1) {
-        /* Protect hardware access with mutex
-     *
-     * Note: This is not strictly necessary, since MXC_GPIO_SetOutVal() is implemented with bit-band
-     * access, which is inherently task-safe. However, for other drivers, this would be required.
-     *
-     */
-        if (xSemaphoreTake(xGPIOmutex, portMAX_DELAY) == pdTRUE) {
-            if (x == LED_OFF) {
-                x = LED_ON;
-            } else {
-                x = LED_OFF;
-            }
-            /* Return the mutex after we have modified the hardware state */
-            xSemaphoreGive(xGPIOmutex);
-        }
-        /* Wait 1 second until next run */
-        vTaskDelayUntil(&xLastWakeTime, configTICK_RATE_HZ);
-    }
-}
-
-/* =| vTask1 |============================================
- *
- * This task blinks LED1 at a 0.5Hz rate, and does not
- *  drift due to the use of vTaskDelayUntil(). It may have
- *  jitter, however, due to any higher-priority task or
- *  interrupt causing delays in scheduling.
- *
- * NOTE: The MAX32660 EV Kit has only 1 LED, so this task
- *  does not blink an LED.
- *
- * =======================================================
- */
-void vTask1(void *pvParameters)
-{
-    TickType_t xLastWakeTime;
-    unsigned int x = LED_ON;
-
-    /* Get task start time */
-    xLastWakeTime = xTaskGetTickCount();
-
-    while (1) {
-        /* Protect hardware access with mutex
-     *
-     * Note: This is not strictly necessary, since MXC_GPIO_SetOutVal() is implemented with bit-band
-     * access, which is inherently task-safe. However, for other drivers, this would be required.
-     *
-     */
-        if (xSemaphoreTake(xGPIOmutex, portMAX_DELAY) == pdTRUE) {
-            if (x == LED_OFF) {
-                LED_On(0);
-                x = LED_ON;
-            } else {
-                LED_Off(0);
-                x = LED_OFF;
-            }
-            /* Return the mutex after we have modified the hardware state */
-            xSemaphoreGive(xGPIOmutex);
-        }
-        /* Wait 1 second until next run */
-        vTaskDelayUntil(&xLastWakeTime, configTICK_RATE_HZ);
-    }
-}
-
-/* =| vTickTockTask |============================================
- *
- * This task writes the current RTOS tick time to the console
- *
- * =======================================================
- */
-void vTickTockTask(void *pvParameters)
-{
-    TickType_t ticks = 0;
-    TickType_t xLastWakeTime;
-
-    /* Get task start time */
-    xLastWakeTime = xTaskGetTickCount();
-
-    while (1) {
-        ticks = xTaskGetTickCount();
-        printf("Uptime is 0x%08x (%u seconds), tickless-idle is %s\n", ticks,
-               ticks / configTICK_RATE_HZ, disable_tickless ? "disabled" : "ENABLED");
-        vTaskDelayUntil(&xLastWakeTime, (configTICK_RATE_HZ * 10));
-    }
-}
-
 /***** Functions *****/
 
 /* =| UART0_IRQHandler |======================================
@@ -193,7 +81,6 @@ void vTickTockTask(void *pvParameters)
 void UARTx_IRQHandler(void)
 {
     MXC_UART_AsyncHandler(ConsoleUART);
-    wutHitSnooze();
 }
 
 /* =| vCmdLineTask_cb |======================================
@@ -245,7 +132,7 @@ void vCmdLineTask(void *pvParameters)
     /* Enable UARTx interrupt */
     NVIC_ClearPendingIRQ(UARTx_IRQn);
     NVIC_DisableIRQ(UARTx_IRQn);
-    NVIC_SetPriority(UARTx_IRQn, 1);
+    NVIC_SetPriority(UARTx_IRQn, 5);
     NVIC_EnableIRQ(UARTx_IRQn);
 
     /* Async read will be used to wake process */
@@ -319,36 +206,6 @@ void vCmdLineTask(void *pvParameters)
     }
 }
 
-#if configUSE_TICKLESS_IDLE
-/* =| freertos_permit_tickless |==========================
- *
- * Determine if any hardware activity should prevent
- *  low-power tickless operation.
- *
- * =======================================================
- */
-int freertos_permit_tickless(void)
-{
-    if (disable_tickless == 1) {
-        return E_BUSY;
-    }
-
-    return MXC_UART_GetActive(ConsoleUART);
-}
-#endif
-
-/* =| WUT_IRQHandler |==========================
- *
- * Interrupt handler for the wake up timer.
- *
- * =======================================================
- */
-void WUT_IRQHandler(void)
-{
-    MXC_WUT_ClearFlags();
-    NVIC_ClearPendingIRQ(WUT_IRQn);
-}
-
 /* =| main |==============================================
  *
  * This program demonstrates FreeRTOS tasks, mutexes,
@@ -356,78 +213,35 @@ void WUT_IRQHandler(void)
  *
  * =======================================================
  */
-int main(void)
-{
+int main(void){
     /* Delay to prevent bricks */
     volatile int i;
     for (i = 0; i < 0xFFFFFF; i++) {}
 
     /* Setup manual CTS/RTS to lockout console and wake from deep sleep */
-    MXC_GPIO_Config(&uart_cts);
-    MXC_GPIO_Config(&uart_rts);
+    // MXC_GPIO_Config(&uart_cts);
+    // MXC_GPIO_Config(&uart_rts);
 
     /* Enable incoming characters */
-    MXC_GPIO_OutClr(uart_rts.port, uart_rts.mask);
-
-#if configUSE_TICKLESS_IDLE
-
-    /* Initialize Wakeup timer */
-    MXC_WUT_Init(MXC_WUT_PRES_1);
-    mxc_wut_cfg_t wut_cfg;
-    wut_cfg.mode = MXC_WUT_MODE_COMPARE;
-    wut_cfg.cmp_cnt = 0xFFFFFFFF;
-
-    /* Enable WUT as a wakup source */
-    MXC_LP_EnableWUTAlarmWakeup();
-
-    NVIC_ClearPendingIRQ(WUT_IRQn);
-    NVIC_EnableIRQ(WUT_IRQn);
-
-    /* Configure and start the WUT */
-    MXC_WUT_Config(&wut_cfg);
-    MXC_WUT_Enable();
-
-    /* Setup CTS interrupt */
-    MXC_GPIO_IntConfig(&uart_cts, MXC_GPIO_INT_FALLING);
-    MXC_GPIO_EnableInt(uart_cts.port, uart_cts.mask);
-
-    NVIC_ClearPendingIRQ(MXC_GPIO_GET_IRQ(MXC_GPIO_GET_IDX(uart_cts.port)));
-    NVIC_EnableIRQ(MXC_GPIO_GET_IRQ(MXC_GPIO_GET_IDX(uart_cts.port)));
-    MXC_LP_EnableGPIOWakeup(&uart_cts);
-
-    /* Initialize CPU Active LED */
-    LED_On(1);
-
-#endif
+    // MXC_GPIO_OutClr(uart_rts.port, uart_rts.mask);
 
     /* Print banner (RTOS scheduler not running) */
     printf("\n-=- %s FreeRTOS (%s) Demo -=-\n", STRING(TARGET), tskKERNEL_VERSION_NUMBER);
-#if configUSE_TICKLESS_IDLE
-    printf("Tickless idle is configured. Type 'tickless 1' to enable.\n");
-#endif
     printf("SystemCoreClock = %d\n", SystemCoreClock);
 
-    /* Create mutexes */
-    xGPIOmutex = xSemaphoreCreateMutex();
-    if (xGPIOmutex == NULL) {
-        printf("xSemaphoreCreateMutex failed to create a mutex.\n");
+    /* Configure tasks */
+    if (
+        xTaskCreate(
+            vCmdLineTask, (const char *)"CmdLineTask",
+            configMINIMAL_STACK_SIZE + CMD_LINE_BUF_SIZE + OUTPUT_BUF_SIZE, NULL,
+            tskIDLE_PRIORITY + 1, &cmd_task_id
+        ) != pdPASS
+    ){
+        printf("xTaskCreate() failed to create a task.\n");
     } else {
-        /* Configure task */
-        if ((xTaskCreate(vTask0, (const char *)"Task0", configMINIMAL_STACK_SIZE, NULL,
-                         tskIDLE_PRIORITY + 1, NULL) != pdPASS) ||
-            (xTaskCreate(vTask1, (const char *)"Task1", configMINIMAL_STACK_SIZE, NULL,
-                         tskIDLE_PRIORITY + 1, NULL) != pdPASS) ||
-            (xTaskCreate(vTickTockTask, (const char *)"TickTock", 2 * configMINIMAL_STACK_SIZE,
-                         NULL, tskIDLE_PRIORITY + 2, NULL) != pdPASS) ||
-            (xTaskCreate(vCmdLineTask, (const char *)"CmdLineTask",
-                         configMINIMAL_STACK_SIZE + CMD_LINE_BUF_SIZE + OUTPUT_BUF_SIZE, NULL,
-                         tskIDLE_PRIORITY + 1, &cmd_task_id) != pdPASS)) {
-            printf("xTaskCreate() failed to create a task.\n");
-        } else {
-            /* Start scheduler */
-            printf("Starting scheduler.\n");
-            vTaskStartScheduler();
-        }
+        /* Start scheduler */
+        printf("Starting scheduler.\n");
+        vTaskStartScheduler();
     }
 
     /* This code is only reached if the scheduler failed to start */
