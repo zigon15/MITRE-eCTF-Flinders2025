@@ -160,6 +160,7 @@ void crypto_buffer_cleanup(crypto_buffer_t *pCryptBuf);
  */
 #define CRYPTO_CREATE_CLEANUP_BUFFER(name, len) \
   uint8_t name[len]; \
+  memset(name, 0, len); \
   crypto_buffer_t name##_internal_obj __attribute__((cleanup(crypto_buffer_cleanup))) = { \
     .length = len, \
     .data = name \

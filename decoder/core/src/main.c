@@ -42,6 +42,8 @@
 // Include tasks
 #include "crypto_manager.h"
 #include "subscription_manager.h"
+#include "flash_manager.h"
+#include "serial_interface_manager.h"
 
 /* FreeRTOS+CLI */
 void vRegisterCLICommands(void);
@@ -216,9 +218,9 @@ int main(void){
     
     // Crypto manager task
     ret = xTaskCreate(
-        cryptoManager_vEncryptionTask, (const char *)"CryptoManager",
+        cryptoManager_vMainTask, (const char *)"CryptoManager",
         CRYPTO_MANAGER_STACK_SIZE, NULL,
-        tskIDLE_PRIORITY + 3, &crypto_manager_task_id
+        tskIDLE_PRIORITY, &crypto_manager_task_id
     );
     if (ret != pdPASS){
         printf("@ERROR xTaskCreate() failed to create CryptoManager.\n");
@@ -227,12 +229,34 @@ int main(void){
 
     // Subscription manager task
     ret = xTaskCreate(
-        subscriptionManager_vEncryptionTask, (const char *)"SubscriptionManager",
+        subscriptionManager_vMainTask, (const char *)"SubscriptionManager",
         SUBSCRIPTION_MANAGER_STACK_SIZE, NULL,
-        tskIDLE_PRIORITY + 0, &subscription_manager_task_id
+        tskIDLE_PRIORITY, &subscription_manager_task_id
     );
     if (ret != pdPASS){
         printf("@ERROR xTaskCreate() failed to create SubscriptionManager: %d\n", ret);
+        while(1);
+    }
+
+    // Flash manager task
+    ret = xTaskCreate(
+        flashManager_vMainTask, (const char *)"FlashManager",
+        FLASH_MANAGER_STACK_SIZE, NULL,
+        tskIDLE_PRIORITY, &subscription_manager_task_id
+    );
+    if (ret != pdPASS){
+        printf("@ERROR xTaskCreate() failed to create FlashManager: %d\n", ret);
+        while(1);
+    }
+
+    // Serial interface manager task
+    ret = xTaskCreate(
+        serialInterfaceManager_vMainTask, (const char *)"SerialInterfaceManager",
+        SERIAL_INTERFACE_MANAGER_STACK_SIZE, NULL,
+        tskIDLE_PRIORITY, &subscription_manager_task_id
+    );
+    if (ret != pdPASS){
+        printf("@ERROR xTaskCreate() failed to create SerialInterfaceManager: %d\n", ret);
         while(1);
     }
 

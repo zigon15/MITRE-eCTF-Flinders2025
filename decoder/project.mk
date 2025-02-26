@@ -48,7 +48,7 @@ LINKERFILE=firmware.ld
 STARTUPFILE=startup_firmware.S
 ENTRY=firmware_startup
 
-# BINS+=secrets.S
+BINS+=secrets.S
 
 # Set assembler flag if development build
 # - Uses different global secrets location

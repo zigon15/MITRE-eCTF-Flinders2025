@@ -24,9 +24,8 @@
 
 //----- Public Types -----//
 
-
 //----- Public Functions -----//
-void subscriptionManager_vEncryptionTask(void *pvParameters);
+void subscriptionManager_vMainTask(void *pvParameters);
 
 // QueueHandle_t cryptoManager_EncryptionQueue(void);
 // QueueHandle_t cryptoManager_SignatureCheckQueue(void);

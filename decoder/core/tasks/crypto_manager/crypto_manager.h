@@ -19,8 +19,14 @@
 #include "queue.h"
 #include "aes.h"
 
+#include "decoder.h"
+#include "crypto.h"
+
 //----- Public Constants -----//
 #define CRYPTO_MANAGER_STACK_SIZE 4096
+
+#define CRYPTO_MANAGER_MIC_LEN  CRYPTO_CMAC_OUTPUT_SIZE
+#define CRYPTO_MANAGER_NONCE_LEN  (CRYPTO_AES_BLOCK_SIZE_BYTE)
 
 //----- Public Types -----//
 enum CryptoManager_KeySource {
@@ -28,11 +34,11 @@ enum CryptoManager_KeySource {
   SUBSCRIPTION_KDF_KEY,
 };
 
-// Key structure
-typedef struct {
-  uint8_t *pKey;
-  mxc_aes_keys_t keyType;
-} CryptoManager_Key;
+enum CryptoManager_RequestType {
+  CRYPTO_MANAGER_REQ_SIG_CHECK,
+  CRYPTO_MANAGER_REQ_CHECK_SUB_DECRYPTED_AUTH_TOKEN,
+  CRYPTO_MANAGER_REQ_DECRYPT,
+};
 
 // Key derivation structure
 typedef struct {
@@ -47,54 +53,56 @@ typedef struct {
   uint8_t keySource;
 } CryptoManager_KeyDerivationData;
 
-// Encrypt data structure
-typedef struct {
-  // Key for AES CTR
-  CryptoManager_Key key;
-
-  // Nonce for AES CTR
-  uint8_t *pNonce;
-
-  // Data to encrypt
-  uint8_t *pPlainText; 
-  uint8_t *pCipherText; 
-  size_t length;
-} CryptoManager_EncryptData;
-
 // Signature check structure
 typedef struct {
-  // How to derive the key
-  CryptoManager_KeyDerivationData kdfRequest;
-
-  // Nonce for AES CTR
-  uint8_t *pNonce;
+  // KDF data for AES KEY
+  CryptoManager_KeyDerivationData kdfData;
 
   // Data to check
-  uint8_t *pData; 
+  const uint8_t *pData; 
   size_t length;
 
   // Signature to check
-  uint8_t *pSignature; 
+  const uint8_t *pExpectedSignature; 
 } CryptoManager_SignatureCheck;
+
+// Encrypt data structure
+typedef struct {
+  // KDF data for AES KEY
+  CryptoManager_KeyDerivationData kdfData;
+
+  // Nonce for AES CTR
+  const uint8_t *pNonce;
+
+  // Data to decrypt
+  const uint8_t *pCipherText; 
+  uint8_t *pPlainText; 
+  size_t length;
+} CryptoManager_DecryptData;
+
+// Subscription decrypted auth token check structure
+typedef struct {
+  // Data to decrypt
+  const uint8_t *pPacketAuthToken; 
+  uint16_t length;
+} CryptoManager_SubDecryptedAuthTokenCheck;
 
 //----- Task Queue Types -----//
 // Signature check structure
 typedef struct {
   TaskHandle_t xRequestingTask;
-  CryptoManager_SignatureCheck sigCheck;
-} CryptoManager_SignatureCheckRequest;
-
-// Encryption request structure
-typedef struct {
-  TaskHandle_t xRequestingTask;
-  CryptoManager_EncryptData encData;
-} CryptoManager_EncryptionRequest;
+  uint8_t requestType;
+  void *pRequest;
+  size_t requestLen;
+} CryptoManager_Request;
 
 //----- Public Functions -----//
-void cryptoManager_vEncryptionTask(void *pvParameters);
+void cryptoManager_vMainTask(void *pvParameters);
 
-QueueHandle_t cryptoManager_EncryptionQueue(void);
-QueueHandle_t cryptoManager_SignatureCheckQueue(void);
+int cryptoManager_GetChannelKdfKey(const channel_id_t channel, const uint8_t **ppKey);
 
+QueueHandle_t cryptoManager_RequestQueue(void);
+
+decoder_id_t cryptoManager_DecoderId(void);
 
 #endif

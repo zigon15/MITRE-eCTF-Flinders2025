@@ -76,7 +76,9 @@
     ],
     "C_Cpp.errorSquiggles": "disabled",
     "files.associations": {
-        "string.h": "c"
+        "string.h": "c",
+        "random": "cpp",
+        "crypto_manager.h": "c"
     },
     "makefile.configureOnOpen": false
 }

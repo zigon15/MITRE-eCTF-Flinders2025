@@ -265,7 +265,6 @@ int crypto_AES_CMAC(
     //---- Calculate Sub Keys ----//
     CRYPTO_CREATE_CLEANUP_BUFFER(key1, CRYPTO_AES_BLOCK_SIZE_BYTE);
     CRYPTO_CREATE_CLEANUP_BUFFER(key2, CRYPTO_AES_BLOCK_SIZE_BYTE);
-
     memset(key1, 0, CRYPTO_AES_BLOCK_SIZE_BYTE);
     memset(key2, 0, CRYPTO_AES_BLOCK_SIZE_BYTE);
 
@@ -295,6 +294,8 @@ int crypto_AES_CMAC(
     // Temp buffers
     CRYPTO_CREATE_CLEANUP_BUFFER(oldBlock, CRYPTO_AES_BLOCK_SIZE_BYTE);
     CRYPTO_CREATE_CLEANUP_BUFFER(newBlock, CRYPTO_AES_BLOCK_SIZE_BYTE);
+    memset(oldBlock, 0, CRYPTO_AES_BLOCK_SIZE_BYTE);
+    memset(newBlock, 0, CRYPTO_AES_BLOCK_SIZE_BYTE);
 
     size_t numBlocks = len / CRYPTO_AES_BLOCK_SIZE_BYTE;
     size_t incompleteBlockSize = len % CRYPTO_AES_BLOCK_SIZE_BYTE;

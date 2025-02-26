@@ -1,93 +1,293 @@
 #include "crypto_manager.h"
-#include "crypto.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 #include "string.h"
 
+#include "crypto.h"
+#include "global_secrets.h"
+
 //----- Private Constants -----//
-#define QUEUE_LENGTH 16
+#define RTOS_QUEUE_LENGTH 16
+
+#define CTR_NONCE_RAND_LEN 12
+
+#define CRYPTO_MANAGER_KEY_LEN 32
 
 //----- Private Variables -----//
-// Global encryption request queue (holds pointers or structures)
-QueueHandle_t xEncryptionQueue;
+// Task request queue
+QueueHandle_t _xRequestQueue;
 
-// Holds signature checking
-QueueHandle_t xSignatureCheckQueue;
+const uint32_t _decoder_id = DECODER_ID;
 
 //----- Private Functions -----//
-uint8_t _deriveAes256Key(
-    CryptoManager_KeyDerivationData *pKeyDerivationData,
+static int _deriveAes256Key(
+    const CryptoManager_KeyDerivationData *pKeyDerivationData,
     uint8_t *pKey
 ){
-    return 0;
-}
+    int res;
 
-uint8_t _encryptData(CryptoManager_EncryptData *pEncrypt){
-    return 0;
-}
-
-uint8_t _signatureCheck(CryptoManager_SignatureCheck *pSigCheck){
-    int ret = 0;
-
-    // Derive key
-    uint8_t pKey[crypto_get_key_len(MXC_AES_256BITS)];
-    ret = _deriveAes256Key(&(pSigCheck->kdfRequest), pKey);
-    if(ret != 0){
-        return ret;
+    // Get KDF key
+    const uint8_t *pKdfKey;
+    switch (pKeyDerivationData->keySource){
+        case FRAME_KDF_KEY:
+            printf("-{I} Using Frame KDF key\n");
+            res = secrets_get_frame_kdf_key(&pKdfKey);
+            break;
+        case SUBSCRIPTION_KDF_KEY:
+            printf("-{I} Using Subscription KDF key\n");
+            res = secrets_get_subscription_kdf_key(&pKdfKey);
+            break;
+        default:
+            printf("-{E} Bad KDF key source!!\n");
+            printf("-FAIL\n");
+            res = 1;
+            break;
+    }
+    if(res != 0){
+        printf("-{E} Failed to find KDF key!!\n");
+        printf("-FAIL\n");
+        return res;
     }
 
-    // Calculate signature
+    CRYPTO_CREATE_CLEANUP_BUFFER(pCipherText, pKeyDerivationData->length);
+
+    printf("-{I} KDF Key: ");
+    crypto_print_hex(pKdfKey, SUBSCRIPTION_KDF_KEY_LEN);
+    printf("-{I} KDF Nonce: ");
+    crypto_print_hex(pKeyDerivationData->pNonce, CRYPTO_MANAGER_NONCE_LEN);
+    printf("-{I} KDF Input: ");
+    crypto_print_hex(pKeyDerivationData->pData, pKeyDerivationData->length);
+
+    // Perform encryption to calculate key
+    res = crypto_AES_CTR_encrypt(
+        pKdfKey, MXC_AES_256BITS, pKeyDerivationData->pNonce,
+        (uint8_t*)pKeyDerivationData->pData, pCipherText, pKeyDerivationData->length
+    );
+    if(res != 0){
+        // printf("-{E} AES CTR Failed for MIC Key KDF!!\n");
+        // printf("-FAIL\n");
+        return res;
+    }
+
+    printf("-{I} Derived Key: ");
+    crypto_print_hex(pCipherText, CRYPTO_MANAGER_KEY_LEN);
+
+    memcpy(pKey, pCipherText, CRYPTO_MANAGER_KEY_LEN);
 
     return 0;
+}
+
+static int _decryptData(const CryptoManager_DecryptData *pDecrypt){
+    int res = 0;
+
+    // Derive key
+    uint8_t pDecryptionKey[crypto_get_key_len(MXC_AES_256BITS)];
+    res = _deriveAes256Key(&(pDecrypt->kdfData), pDecryptionKey);
+    if(res != 0){
+        return res;
+    }
+
+    printf("-{I} Decryption Key: ");
+    crypto_print_hex(pDecryptionKey, 32);
+    printf("-{I} Decryption Nonce: ");
+    crypto_print_hex(pDecrypt->pNonce, CRYPTO_MANAGER_NONCE_LEN);
+    printf("-{I} Decryption Cipher Text: ");
+    crypto_print_hex(pDecrypt->pCipherText, pDecrypt->length);
+
+    // Decrypt the data
+    res = crypto_AES_CTR_decrypt(
+        pDecryptionKey, MXC_AES_256BITS, pDecrypt->pNonce,
+        pDecrypt->pCipherText, pDecrypt->pPlainText, pDecrypt->length
+    );
+    if(res != 0){
+        // printf("-{E} AES CTR Failed for Cipher Text Decryption!!\n");
+        // printf("-FAIL\n");
+        return res;
+    }
+
+    printf("-{I} Decryption Plain Text: ");
+    crypto_print_hex(pDecrypt->pPlainText, pDecrypt->length);
+
+
+    return 0;
+}
+
+static int _signatureCheck(CryptoManager_SignatureCheck *pSigCheck){
+    int res = 0;
+
+    // Derive key
+    CRYPTO_CREATE_CLEANUP_BUFFER(pMicKey, CRYPTO_MANAGER_KEY_LEN);
+    res = _deriveAes256Key(&(pSigCheck->kdfData), pMicKey);
+    if(res != 0){
+        return res;
+    }
+
+    printf("-{I} MIC Key: ");
+    crypto_print_hex(pMicKey, CRYPTO_MANAGER_KEY_LEN);
+    printf("-{I} MIC Input: ");
+    crypto_print_hex(pSigCheck->pData, pSigCheck->length);
+
+    // Calculate expect MIC on subscription packet
+    CRYPTO_CREATE_CLEANUP_BUFFER(calculatedMic, CRYPTO_MANAGER_MIC_LEN);
+    res = crypto_AES_CMAC(
+        pMicKey, MXC_AES_256BITS, 
+        pSigCheck->pData, pSigCheck->length,
+        calculatedMic
+    );
+    if(res != 0){
+        return res;
+    }
+
+    printf("-{I} Calculated MIC: ");
+    crypto_print_hex(calculatedMic, CRYPTO_MANAGER_MIC_LEN);
+    printf("-{I} Packet MIC: ");
+    crypto_print_hex(pSigCheck->pExpectedSignature, CRYPTO_MANAGER_MIC_LEN);
+
+    // Compare MIC
+    if (memcmp(calculatedMic, pSigCheck->pExpectedSignature, CRYPTO_MANAGER_MIC_LEN) != 0){
+        printf("-{E} Calculated MIC Does Not Match Packet MIC!!\n");
+        printf("-FAIL\n");
+        return 1;
+    }
+    printf("-{I} MIC Good :)\n");
+    return 0;
+}
+
+static int _subCipherAuthTagCheck(CryptoManager_SubDecryptedAuthTokenCheck *pCipherAuthTagCheck){
+    int res = 0;
+
+    // Check given packet length is good
+    if(pCipherAuthTagCheck->length != SUBSCRIPTION_CIPHER_AUTH_TAG_LEN){
+        printf("-{E} Bad Cipher Auth Tag Length!!\n");
+        return 1;
+    }
+
+    // Get auth tag from global secrets
+    const uint8_t *pExpectedCipherAuthTag;
+    res = secrets_get_subscription_cipher_auth_tag(&pExpectedCipherAuthTag);
+    if(res != 0){
+        printf("-{E} Failed to Get Subscription Cipher Auth Tag!!\n");
+        return res;
+    }
+
+    printf("-{I} Global Secrets Cipher Auth Tag: ");
+    crypto_print_hex(pExpectedCipherAuthTag, SUBSCRIPTION_CIPHER_AUTH_TAG_LEN);
+
+    printf("-{I} Packet Subscription Cipher Auth Tag: ");
+    crypto_print_hex(pCipherAuthTagCheck->pPacketAuthToken, SUBSCRIPTION_CIPHER_AUTH_TAG_LEN);
+
+    // Compare decrypted auth tag with one in global secrets
+    if (memcmp(pExpectedCipherAuthTag, pCipherAuthTagCheck->pPacketAuthToken, SUBSCRIPTION_CIPHER_AUTH_TAG_LEN) != 0){
+        printf("-{E} Decrypted Cipher Auth Tag Does not Match One in Global Secrets!!\n");
+        printf("-FAIL\n");
+        return 1;
+    }
+    printf("-{I} Expected Cipher Auth Tag Matches Packet Cipher Auth Tag :)\n");
+    return 0;
+}
+
+int _processRequest(CryptoManager_Request *pRequest){
+    int res;
+
+    //-- Check Request Packet is Good
+    if(pRequest->pRequest == 0){
+        printf("-{E} Bad Request Pointer!!\n"); 
+        return 1;
+    }
+
+    if(pRequest->requestLen == 0){
+        printf("-{E} Bad Request Length!!\n"); 
+        return 1;
+    }
+
+    //-- Execute Request
+    switch (pRequest->requestType){
+        case CRYPTO_MANAGER_REQ_SIG_CHECK:
+            printf("-{I} Signature Check Request\n");
+
+            // Check request length is good
+            if(pRequest->requestLen != sizeof(CryptoManager_SignatureCheck)){
+                printf("-{E} Bad Request Length!!\n");
+                return 0;
+            }
+
+            // Check signature
+            CryptoManager_SignatureCheck *pSigCheck = pRequest->pRequest;
+            res = _signatureCheck(pSigCheck);
+            break;
+
+        case CRYPTO_MANAGER_REQ_DECRYPT:
+            printf("-{I} Decryption Request\n");
+
+            // Check request length is good
+            if(pRequest->requestLen != sizeof(CryptoManager_DecryptData)){
+                printf("-{E} Bad Request Length!!\n");
+                return 0;
+            }
+
+            // Decrypt data
+            CryptoManager_DecryptData *pDecrypt = pRequest->pRequest;
+            res = _decryptData(pDecrypt);
+            break;
+
+        case CRYPTO_MANAGER_REQ_CHECK_SUB_DECRYPTED_AUTH_TOKEN:
+            printf("-{I} Check Decrypted Auth Token Request\n");
+
+            // Check request length is good
+            if(pRequest->requestLen != sizeof(CryptoManager_SubDecryptedAuthTokenCheck)){
+                printf("-{E} Bad Request Length!!\n");
+                return 0;
+            }
+
+            // Check cipher auth tag
+            CryptoManager_SubDecryptedAuthTokenCheck *pCipherAuthTag = pRequest->pRequest;
+            res = _subCipherAuthTagCheck(pCipherAuthTag);
+            break;
+
+        default:
+            printf("-{E} Unknown Request Type!!\n");
+            res = 1;
+            break;
+    }
+
+    return res;
 }
 
 //----- Public Functions -----//
+void cryptoManager_vMainTask(void *pvParameters){
+    secrets_init();
 
-void cryptoManager_vEncryptionTask(void *pvParameters){
     // Setup queues
-    xEncryptionQueue = xQueueCreate(
-        QUEUE_LENGTH, sizeof(CryptoManager_EncryptionRequest)
-    );
-    xSignatureCheckQueue = xQueueCreate(
-        QUEUE_LENGTH, sizeof(CryptoManager_EncryptionRequest)
+    _xRequestQueue = xQueueCreate(
+        RTOS_QUEUE_LENGTH, sizeof(CryptoManager_Request)
     );
 
-    CryptoManager_EncryptionRequest encReq;
-    CryptoManager_SignatureCheckRequest sigCheckReq;
+    CryptoManager_Request cryptoRequest;
 
     while (1){
-        if (xQueueReceive(xEncryptionQueue, &encReq, portMAX_DELAY) == pdPASS){
-            // ---------------------------------------------------------------------
-            // TODO: Replace the following dummy operation with your AES encryption.
-            // Example: aes_encrypt(req.pPlainData, req.pEncryptedData, req.length, aesKey);
-            // ---------------------------------------------------------------------
-            // memcpy(encReq.pEncryptedData, encReq.pPlainData, encReq.length);
+        if (xQueueReceive(_xRequestQueue, &cryptoRequest, portMAX_DELAY) == pdPASS){
+            printf("[CryptoManager] @TASK Received Request\n");
+            int res = _processRequest(&cryptoRequest);
+            printf("-COMPLETE\n");
 
-            // Signal the requesting task that encryption is complete
-            xTaskNotifyGive(encReq.xRequestingTask);
+            // Signal the requesting task that request is complete
+            xTaskNotify(cryptoRequest.xRequestingTask, res, eSetValueWithOverwrite);
         }
-
-        if (xQueueReceive(xSignatureCheckQueue, &sigCheckReq, portMAX_DELAY) == pdPASS){
-            uint8_t sigGood = 0;
-
-            // Check signature
-            uint8_t ret = _signatureCheck(&(sigCheckReq.sigCheck));
-            if(ret == 0){
-                sigGood = 1;
-            }
-
-            // Signal the requesting task that signature check is complete
-            xTaskNotify(sigCheckReq.xRequestingTask, (uint32_t)sigGood, eSetValueWithOverwrite);
-        }
+        // vTaskDelay(pdMS_TO_TICKS(10));
+        // taskYIELD();
     }
 }
 
-QueueHandle_t cryptoManager_EncryptionQueue(void){
-    return xEncryptionQueue;
+int cryptoManager_GetChannelKdfKey(const channel_id_t channel, const uint8_t **ppKey){
+    return secrets_get_channel_kdf_key(channel, ppKey);
 }
 
-QueueHandle_t cryptoManager_SignatureCheckQueue(void){
-    return xSignatureCheckQueue;
+QueueHandle_t cryptoManager_RequestQueue(void){
+    return _xRequestQueue;
+}
+
+decoder_id_t cryptoManager_DecoderId(void){
+    return _decoder_id;
 }

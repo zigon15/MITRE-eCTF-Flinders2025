@@ -217,14 +217,15 @@ ifeq ($(DEBUG),1)
 # Optimizes for debugging as recommended
 # by GNU for code-edit-debug cycles
 # https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html#Optimize-Options
-MXC_OPTIMIZE_CFLAGS := -O0
+MXC_OPTIMIZE_CFLAGS := -Og
 endif
 
 # Default level if not building for release or explicitly for debug
-MXC_OPTIMIZE_CFLAGS ?= -O0
+MXC_OPTIMIZE_CFLAGS ?= -O2
 
 # Set compiler flags
 PROJ_CFLAGS += -Wall # Enable warnings
+PROJ_CFLAGS+=-DDECODER_ID=$(DECODER_ID)
 PROJ_CFLAGS += -DMXC_ASSERT_ENABLE
 
 # Set hardware floating point acceleration.
