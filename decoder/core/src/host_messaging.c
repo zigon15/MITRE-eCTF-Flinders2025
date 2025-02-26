@@ -23,6 +23,15 @@
  *  @return 0 on success. A negative value on error.
 */
 int host_read_bytes(void *buf, uint16_t len) {
+    
+    if (!buf) {
+        return -1;  // Prevent null pointer dereference
+    }
+    // Ensure len is within a reasonable limit
+    if (len > MAX_ALLOWED_LEN) {
+        return -1;
+    }
+    
     int result;
     int i;
 
@@ -31,7 +40,7 @@ int host_read_bytes(void *buf, uint16_t len) {
             host_write_ack();
         }
         result = uart_readbyte();
-        if (result < 0) {  // if there was an error, return immediately
+        if (result < 0 || result > 255) {  // if there was an error, return immediately
             return result;
         }
         ((uint8_t *)buf)[i] = result;
@@ -178,47 +187,57 @@ int host_read_packet(msg_type_t *pCmd, void *pBuf, size_t buffLen, uint16_t *pPk
     msg_header_t header = {0};
 
     // pCmd must be a valid pointer!!
-    if(pCmd == NULL) {
+    if (pCmd == NULL) {
         return -1;
     }
 
-    host_read_header(&header);
+    if (host_read_header(&header) < 0) {
+        return -1;
+    }
 
     *pCmd = header.cmd;
 
     // Ack message so no data
-    if(header.cmd == ACK_MSG) {
+    if (header.cmd == ACK_MSG) {
         return 0;
     }
 
     // ACK the header
-    host_write_ack();  
-
-    // Check data fits in buffer
-    if(header.len > buffLen){
+    if (host_write_ack() < 0) { 
         return -1;
     }
 
-    if(pPktLen != NULL) {
+    // Check data fits in buffer
+    if (header.len > buffLen) {
+        return -1;
+    }
+
+    if (pPktLen != NULL) {
         *pPktLen = header.len;
     }
 
     // No data attached return
-    if(header.len == 0) {
+    if (header.len == 0) {
         return 0;
     }
 
     // Read data into given buffer if required
-    if(pBuf != NULL) {
-        if(host_read_bytes(pBuf, header.len) < 0) {
+    if (pBuf != NULL) {
+        if (host_read_bytes(pBuf, header.len) < 0) {
+            // Securely clear buffer on read failure
+            memset(pBuf, 0, buffLen);
+
             return -1;
         }
     }
 
     // ACK the final block (not handled by read_bytes)
     if (host_write_ack() < 0) { 
+        if (pBuf != NULL) {
+            memset(pBuf, 0, buffLen);
+        }
         return -1;
     }
-    
+
     return 0;
 }

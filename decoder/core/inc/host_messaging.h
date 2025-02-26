@@ -22,6 +22,8 @@
 #define CMD_TYPE_LEN sizeof(char)
 #define CMD_LEN_LEN sizeof(uint16_t)
 #define MSG_MAGIC '%'     // '%' - 0x25
+#define MAX_ALLOWED_LEN 65535
+
 
 typedef enum {
     DECODE_MSG = 'D',     // 'D' - 0x44
