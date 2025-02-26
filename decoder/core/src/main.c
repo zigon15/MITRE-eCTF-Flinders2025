@@ -50,19 +50,7 @@ TaskHandle_t cmd_task_id;
 #define STRING_(x) #x
 
 /* Console ISR selection */
-#if (CONSOLE_UART == 0)
-#define UARTx_IRQHandler UART0_IRQHandler
-#define UARTx_IRQn UART0_IRQn
-mxc_gpio_cfg_t uart_cts = { MXC_GPIO0, MXC_GPIO_PIN_2, MXC_GPIO_FUNC_IN, MXC_GPIO_PAD_WEAK_PULL_UP,
-                            MXC_GPIO_VSSEL_VDDIOH };
-mxc_gpio_cfg_t uart_rts = { MXC_GPIO0, MXC_GPIO_PIN_3, MXC_GPIO_FUNC_OUT, MXC_GPIO_PAD_NONE,
-                            MXC_GPIO_VSSEL_VDDIOH };
-#else
-#error "Please update ISR macro for UART CONSOLE_UART"
-#endif
 mxc_uart_regs_t *ConsoleUART = MXC_UART_GET_UART(CONSOLE_UART);
-
-mxc_gpio_cfg_t uart_cts_isr;
 
 /* Array sizes */
 #define CMD_LINE_BUF_SIZE 80
@@ -70,16 +58,7 @@ mxc_gpio_cfg_t uart_cts_isr;
 
 /***** Functions *****/
 
-/* =| UART0_IRQHandler |======================================
- *
- * This function overrides the weakly-declared interrupt handler
- *  in system_max326xx.c and is needed for asynchronous UART
- *  calls to work properly
- *
- * ===========================================================
- */
-void UARTx_IRQHandler(void)
-{
+void UARTx_IRQHandler(void){
     MXC_UART_AsyncHandler(ConsoleUART);
 }
 
@@ -90,8 +69,7 @@ void UARTx_IRQHandler(void)
  *
  * ===========================================================
  */
-void vCmdLineTask_cb(mxc_uart_req_t *req, int error)
-{
+void vCmdLineTask_cb(mxc_uart_req_t *req, int error){
     BaseType_t xHigherPriorityTaskWoken;
 
     /* Wake the task */
@@ -112,8 +90,7 @@ void vCmdLineTask_cb(mxc_uart_req_t *req, int error)
  *
  * =======================================================
  */
-void vCmdLineTask(void *pvParameters)
-{
+void vCmdLineTask(void *pvParameters){
     unsigned char tmp;
     unsigned int index; /* Index into buffer */
     unsigned int x;
@@ -206,30 +183,16 @@ void vCmdLineTask(void *pvParameters)
     }
 }
 
-/* =| main |==============================================
- *
- * This program demonstrates FreeRTOS tasks, mutexes,
- *  and the FreeRTOS+CLI extension.
- *
- * =======================================================
- */
 int main(void){
-    /* Delay to prevent bricks */
+    // Delay to prevent bricks
     volatile int i;
     for (i = 0; i < 0xFFFFFF; i++) {}
 
-    /* Setup manual CTS/RTS to lockout console and wake from deep sleep */
-    // MXC_GPIO_Config(&uart_cts);
-    // MXC_GPIO_Config(&uart_rts);
-
-    /* Enable incoming characters */
-    // MXC_GPIO_OutClr(uart_rts.port, uart_rts.mask);
-
-    /* Print banner (RTOS scheduler not running) */
+    // Print banner (RTOS scheduler not running)
     printf("\n-=- %s FreeRTOS (%s) Demo -=-\n", STRING(TARGET), tskKERNEL_VERSION_NUMBER);
     printf("SystemCoreClock = %d\n", SystemCoreClock);
 
-    /* Configure tasks */
+    // Configure tasks 
     if (
         xTaskCreate(
             vCmdLineTask, (const char *)"CmdLineTask",
@@ -244,12 +207,11 @@ int main(void){
         vTaskStartScheduler();
     }
 
-    /* This code is only reached if the scheduler failed to start */
+    // This code is only reached if the scheduler failed to start
     printf("ERROR: FreeRTOS did not start due to above error!\n");
     while (1) {
         __NOP();
     }
 
-    /* Quiet GCC warnings */
     return -1;
 }
