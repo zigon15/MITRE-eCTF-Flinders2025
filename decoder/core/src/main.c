@@ -41,6 +41,7 @@
 
 // Include tasks
 #include "crypto_manager.h"
+#include "subscription_manager.h"
 
 /* FreeRTOS+CLI */
 void vRegisterCLICommands(void);
@@ -48,6 +49,7 @@ void vRegisterCLICommands(void);
 /* Task IDs */
 TaskHandle_t cmd_task_id;
 TaskHandle_t crypto_manager_task_id;
+TaskHandle_t subscription_manager_task_id;
 
 /* Stringification macros */
 #define STRING(x) STRING_(x)
@@ -205,7 +207,7 @@ int main(void){
     ret = xTaskCreate(
         vCmdLineTask, (const char *)"CmdLineTask",
         configMINIMAL_STACK_SIZE + CMD_LINE_BUF_SIZE + OUTPUT_BUF_SIZE, NULL,
-        tskIDLE_PRIORITY + 1, &cmd_task_id
+        tskIDLE_PRIORITY + 2, &cmd_task_id
     );
     if (ret != pdPASS){
         printf("@ERROR xTaskCreate() failed to create CmdLineTask.\n");
@@ -216,10 +218,21 @@ int main(void){
     ret = xTaskCreate(
         cryptoManager_vEncryptionTask, (const char *)"CryptoManager",
         CRYPTO_MANAGER_STACK_SIZE, NULL,
-        tskIDLE_PRIORITY + 0, &crypto_manager_task_id
+        tskIDLE_PRIORITY + 3, &crypto_manager_task_id
     );
     if (ret != pdPASS){
         printf("@ERROR xTaskCreate() failed to create CryptoManager.\n");
+        while(1);
+    }
+
+    // Subscription manager task
+    ret = xTaskCreate(
+        subscriptionManager_vEncryptionTask, (const char *)"SubscriptionManager",
+        SUBSCRIPTION_MANAGER_STACK_SIZE, NULL,
+        tskIDLE_PRIORITY + 0, &subscription_manager_task_id
+    );
+    if (ret != pdPASS){
+        printf("@ERROR xTaskCreate() failed to create SubscriptionManager: %d\n", ret);
         while(1);
     }
 

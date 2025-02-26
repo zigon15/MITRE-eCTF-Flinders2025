@@ -21,6 +21,7 @@ IPATH+=core/inc
 IPATH+=core/tasks
 IPATH+=core/drivers/crypto
 IPATH+=core/tasks/crypto_manager/
+IPATH+=core/tasks/subscription_manager/
 
 IPATH+=/global_secrets.S
 
@@ -29,6 +30,7 @@ VPATH+=core/src/
 VPATH+=core/tasks/
 VPATH+=core/drivers/crypto
 VPATH+=core/tasks/crypto_manager
+VPATH+=core/tasks/subscription_manager
 
 # Add your config here!
 DEBUG=1
