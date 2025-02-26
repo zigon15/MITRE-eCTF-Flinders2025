@@ -50,6 +50,8 @@ TaskHandle_t cmd_task_id;
 #define STRING_(x) #x
 
 /* Console ISR selection */
+#define UARTx_IRQHandler UART0_IRQHandler
+#define UARTx_IRQn UART0_IRQn
 mxc_uart_regs_t *ConsoleUART = MXC_UART_GET_UART(CONSOLE_UART);
 
 /* Array sizes */
