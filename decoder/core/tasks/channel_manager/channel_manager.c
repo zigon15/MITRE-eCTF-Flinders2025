@@ -123,7 +123,7 @@ static int _getSubs(ChannelManager_GetSubscription *pGetSubs){
     // Check if channel is active
     for (uint32_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
         // Check if the subscription is active
-        if (decoder_status.subscribed_channels[i].active) {
+        if (_decoder_status.subscribed_channels[i].active) {
             pGetSubs->channels[numChannels] =  _decoder_status.subscribed_channels[i].id;
             pGetSubs->timeStart[numChannels] = _decoder_status.subscribed_channels[i].start_timestamp;
             pGetSubs->timeEnd[numChannels] = _decoder_status.subscribed_channels[i].end_timestamp;
