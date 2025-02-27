@@ -146,7 +146,7 @@ void serialInterfaceManager_vMainTask(void *pvParameters){
     int res;
 
     while (1){
-        host_print_debug("Ready\n");
+        // host_print_debug("Ready\n");
         STATUS_LED_GREEN();
 
         res = host_read_packet(&cmd, uart_RxBuff, INPUT_BUFFER_SIZE, &pkt_len);

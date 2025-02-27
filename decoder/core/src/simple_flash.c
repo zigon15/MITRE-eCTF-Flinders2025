@@ -51,7 +51,6 @@ void flash_simple_init(void) {
     MXC_NVIC_SetVector(FLC0_IRQn, flash_simple_irq);
     NVIC_EnableIRQ(FLC0_IRQn);
     MXC_FLC_EnableInt(MXC_F_FLC_INTR_DONEIE | MXC_F_FLC_INTR_AFIE);
-    MXC_ICC_Disable(MXC_ICC0);
 }
 
 /**
@@ -99,5 +98,7 @@ void flash_simple_read(uint32_t address, void* buffer, uint32_t size) {
  * flash_simple_erase_page documentation.
 */
 int flash_simple_write(uint32_t address, void* buffer, uint32_t size) {
+    MXC_ICC_Disable(MXC_ICC0);
     return MXC_FLC_Write(address, size, (uint32_t *)buffer);
+    MXC_ICC_Enable(MXC_ICC0);
 }
