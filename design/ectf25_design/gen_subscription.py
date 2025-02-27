@@ -57,12 +57,12 @@ def subscription_derive_keys(
 
     if len(subscription_kdf_key) != AES_KEY_LEN_BYTE:
         logger.error(f"Bad subscription kdf key length, Expected {AES_KEY_LEN_BYTE} bytes!!")
-        exit()
+        raise Exception(f"Bad subscription kdf key length, Expected {AES_KEY_LEN_BYTE} bytes!!")
 
     # Validate that the number of channels fit in required range
     if channel > 0xFFFF:
         logger.error(f"Channel num greater than the max of 0xFFFF!!")
-        exit()
+        raise Exception(f"Channel num greater than the max of 0xFFFF!!")
 
     # CTR Nonce must have some randomness to ensure derived keys are never the same
     ctr_nonce_rand = os.urandom(SUBSCRIPTION_UPDATE_NONCE_RAND_LEN)
@@ -89,7 +89,7 @@ def subscription_derive_keys(
 
     if len(input_bytes) != 2*AES_BLOCK_SIZE_BYTE:
         logger.error("Expected AES CTR Input for Subscription Update MIC KDF to be one block length!!")
-        exit()
+        raise Exception("Expected AES CTR Input for Subscription Update MIC KDF to be one block length!!")
 
     # Perform AES encryption
     encryptor = cipher.encryptor()
@@ -110,8 +110,8 @@ def subscription_derive_keys(
                   channel.to_bytes(2, byteorder='little')
     
     if len(input_bytes) != 2*AES_BLOCK_SIZE_BYTE:
-        logger.error("Expected AES CTR Input for Subscription Update Encryption KDF to be one block length!!")
-        exit()
+        logger.error("Expected AES CTR Input for Subscription Update Encryption KDF to be two block length!!")
+        raise Exception("Expected AES CTR Input for Subscription Update Encryption KDF to be two block length!!")
     
     # Increment nonce as to not use the same nonce twice
     number = int.from_bytes(ctr_nonce_rand, byteorder='big')
@@ -198,7 +198,7 @@ def gen_subscription(
     channel_key = globalSecrets.channel_key(channel)
     if channel_key == None:
         logger.error(f"Channel {channel} not found in deployment secrets!!")
-        exit()
+        raise Exception(f"Channel {channel} not found in deployment secrets!!")
 
     # Derive subscription update MIC and encrypt keys from various parameters
     mic_key, encryption_key, ctr_nonce_rand = subscription_derive_keys(
@@ -219,7 +219,7 @@ def gen_subscription(
 
     if len(cipher_text) != SUBSCRIPTION_UPDATE_CYPHER_TEX_LEN:
         logger.error("Expected Subscription Cipher Text to be Two AES Block Length!!")
-        exit()
+        raise Exception("Expected Subscription Cipher Text to be Two AES Block Length!!")
 
     # Double check all the lengths are as expected
     assert(len(ctr_nonce_rand) == SUBSCRIPTION_UPDATE_NONCE_RAND_LEN)
@@ -253,7 +253,7 @@ def gen_subscription(
 
     if len(subscription_update_msg) != SUBSCRIPTION_UPDATE_PACKET_LEN:
         logger.error(f"Bad Subscription Update Length -> ({SUBSCRIPTION_UPDATE_PACKET_LEN} != {len(subscription_update_msg)})!!")
-        exit()
+        raise Exception(f"Bad Subscription Update Length -> ({SUBSCRIPTION_UPDATE_PACKET_LEN} != {len(subscription_update_msg)})!!")
 
     # Print out subscription update message for debugging
     # logger.info(f"Subscription Update Message -> 0x{subscription_update_msg.hex()}")
