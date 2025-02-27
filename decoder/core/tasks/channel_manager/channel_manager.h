@@ -39,9 +39,9 @@ typedef struct {
 // Get all subscriptions structure
 typedef struct {
   uint16_t numChannels;
-  const channel_id_t channels[MAX_CHANNEL_COUNT];
-  const timestamp_t timeStart[MAX_CHANNEL_COUNT];
-  const timestamp_t timeEnd[MAX_CHANNEL_COUNT];
+  channel_id_t channels[MAX_CHANNEL_COUNT];
+  timestamp_t timeStart[MAX_CHANNEL_COUNT];
+  timestamp_t timeEnd[MAX_CHANNEL_COUNT];
 } ChannelManager_GetSubscription;
 
 // Update channel information

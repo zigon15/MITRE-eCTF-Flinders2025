@@ -15,3 +15,6 @@ output/*
 
 # Ignore build folders
 ectf25_design.egg-info
+
+# Ignore Python VM
+.venv

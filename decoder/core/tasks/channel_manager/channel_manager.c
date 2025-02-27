@@ -98,6 +98,42 @@ static int _updateSub(const ChannelManager_UpdateSubscription *pUpdateSub){
     return 0;
 }
 
+
+static int _isSubscribed(const ChannelManager_CheckActiveSub *pCheckActiveSub) {
+    // Check if this is an emergency broadcast message
+    if (pCheckActiveSub->channel == EMERGENCY_CHANNEL) {
+        return 1;
+    }
+
+    // Check if the decoder has has a subscription
+    for (size_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
+        // Check subscription is valid
+        if (_decoder_status.subscribed_channels[i].id == pCheckActiveSub->channel && _decoder_status.subscribed_channels[i].active) {
+            if(pCheckActiveSub->time >= _decoder_status.subscribed_channels[i].start_timestamp && pCheckActiveSub->time <= _decoder_status.subscribed_channels[i].end_timestamp){
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+
+static int _getSubs(ChannelManager_GetSubscription *pGetSubs){
+    int numChannels = 0;
+    // Check if channel is active
+    for (uint32_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
+        // Check if the subscription is active
+        if (decoder_status.subscribed_channels[i].active) {
+            pGetSubs->channels[numChannels] =  _decoder_status.subscribed_channels[i].id;
+            pGetSubs->timeStart[numChannels] = _decoder_status.subscribed_channels[i].start_timestamp;
+            pGetSubs->timeEnd[numChannels] = _decoder_status.subscribed_channels[i].end_timestamp;
+            numChannels++;
+        }
+    }
+    pGetSubs->numChannels = numChannels;
+    return 0;
+}
+
 static int _processRequest(ChannelManager_Request *pRequest){
     int res = 0;
 
@@ -123,9 +159,9 @@ static int _processRequest(ChannelManager_Request *pRequest){
                 return 0;
             }
 
-            // // Check signature
-            // CryptoManager_SignatureCheck *pSigCheck = pRequest->pRequest;
-            // res = _signatureCheck(pSigCheck);
+            // Check for active subscriptions in given channel
+            ChannelManager_CheckActiveSub *pCheckActiveSub = pRequest->pRequest;
+            res = _isSubscribed(pCheckActiveSub);
             break;
 
         case CHANNEL_MANAGER_GET_SUBSCRIPTION:
@@ -137,9 +173,9 @@ static int _processRequest(ChannelManager_Request *pRequest){
                 return 0;
             }
 
-            // // Check signature
-            // CryptoManager_SignatureCheck *pSigCheck = pRequest->pRequest;
-            // res = _signatureCheck(pSigCheck);
+            // List alls channels with subscriptions
+            ChannelManager_GetSubscription *pGetSubs = pRequest->pRequest;
+            res = _getSubs(pGetSubs);
             break;
 
         case CHANNEL_MANAGER_UPDATE_SUB:
