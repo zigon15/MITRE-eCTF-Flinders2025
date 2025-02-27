@@ -7,7 +7,9 @@
 #include "string.h"
 
 #include "crypto_manager.h"
+#include "channel_manager.h"
 #include "global_secrets.h"
+
 
 //----- Private Constants -----//
 #define SUBSCRIPTION_UPDATE_MSG_LEN 64
@@ -255,6 +257,36 @@ static int _decryptData(
     return res;
 }
 
+static int _updateSubscription(
+    const channel_id_t channel, 
+    const timestamp_t timeStart, const timestamp_t timeEnd
+){
+    int res;
+    QueueHandle_t xRequestQueue = channelManager_RequestQueue();
+
+    //-- Prepare the Sub Update Packet --//
+    ChannelManager_UpdateSubscription channelUpdateSub;
+
+    channelUpdateSub.channel = channel;
+    channelUpdateSub.timeStart = timeStart;
+    channelUpdateSub.timeEnd = timeEnd;
+
+    //-- Assemble Request
+    ChannelManager_Request channelRequest;
+    channelRequest.xRequestingTask = xTaskGetCurrentTaskHandle();
+    channelRequest.requestType = CHANNEL_MANAGER_UPDATE_SUB;
+    channelRequest.requestLen = sizeof(channelUpdateSub);
+    channelRequest.pRequest = &channelUpdateSub;
+
+    //-- Send Request and Wait
+    xQueueSend(xRequestQueue, &channelRequest, portMAX_DELAY);
+    xTaskNotifyWait(0, 0xFFFFFFFF, &res, portMAX_DELAY);
+
+    printf("[SubscriptionManager] @INFO Update Subscription res = %d\n", res);
+
+    return 0;
+}
+
 static int _addSubscription(const uint8_t *pData, const pkt_len_t pkt_len){
     int res;
 
@@ -339,13 +371,22 @@ static int _addSubscription(const uint8_t *pData, const pkt_len_t pkt_len){
             return res;
 
         }
-        //-- Process Results
+
+        //-- Process Results and Update Subscription
+        // MIC and Cipher auth tag have been verified :)
         uint64_t timeStampStart = *((uint64_t*)pPlainText);
         uint64_t timeStampEnd = *((uint64_t*)(pPlainText + sizeof(uint64_t) + SUBSCRIPTION_CIPHER_AUTH_TAG_LEN));
 
         printf("-{I} Time Stamp Start: %llu\n", timeStampStart);
         printf("-{I} Time Stamp End: %llu\n", timeStampEnd);
 
+        res = _updateSubscription(pUpdate->channel, timeStampStart, timeStampEnd);
+        if(res != 0){
+            // STATUS_LED_RED();
+            printf("-FAIL [Subscription Update]\n\n");
+            // host_print_error("Subscription Update: Channel Update Failed\n");
+            return res;
+        }
     }
 
     printf("-COMPLETE\n");

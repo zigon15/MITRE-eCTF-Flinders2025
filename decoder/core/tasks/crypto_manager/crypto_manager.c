@@ -12,12 +12,11 @@
 #define RTOS_QUEUE_LENGTH 16
 
 #define CTR_NONCE_RAND_LEN 12
-
 #define CRYPTO_MANAGER_KEY_LEN 32
 
 //----- Private Variables -----//
 // Task request queue
-QueueHandle_t _xRequestQueue;
+static QueueHandle_t _xRequestQueue;
 
 const uint32_t _decoder_id = DECODER_ID;
 
@@ -188,7 +187,7 @@ static int _subCipherAuthTagCheck(CryptoManager_SubDecryptedAuthTokenCheck *pCip
     return 0;
 }
 
-int _processRequest(CryptoManager_Request *pRequest){
+static int _processRequest(CryptoManager_Request *pRequest){
     int res;
 
     //-- Check Request Packet is Good
@@ -259,7 +258,7 @@ int _processRequest(CryptoManager_Request *pRequest){
 void cryptoManager_vMainTask(void *pvParameters){
     secrets_init();
 
-    // Setup queues
+    // Setup request queue
     _xRequestQueue = xQueueCreate(
         RTOS_QUEUE_LENGTH, sizeof(CryptoManager_Request)
     );

@@ -22,6 +22,9 @@ IPATH+=core/tasks
 IPATH+=core/drivers/crypto
 IPATH+=core/tasks/crypto_manager/
 IPATH+=core/tasks/subscription_manager/
+IPATH+=core/tasks/memory_manager/
+IPATH+=core/tasks/serial_interface_manager/
+IPATH+=core/tasks/channel_manager/
 
 IPATH+=/global_secrets.S
 
@@ -31,6 +34,9 @@ VPATH+=core/tasks/
 VPATH+=core/drivers/crypto
 VPATH+=core/tasks/crypto_manager
 VPATH+=core/tasks/subscription_manager
+VPATH+=core/tasks/memory_manager
+VPATH+=core/tasks/serial_interface_manager
+VPATH+=core/tasks/channel_manager
 
 # Add your config here!
 DEBUG=1

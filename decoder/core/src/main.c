@@ -42,8 +42,9 @@
 // Include tasks
 #include "crypto_manager.h"
 #include "subscription_manager.h"
-#include "flash_manager.h"
+#include "memory_manager.h"
 #include "serial_interface_manager.h"
+#include "channel_manager.h"
 
 /* FreeRTOS+CLI */
 void vRegisterCLICommands(void);
@@ -52,6 +53,9 @@ void vRegisterCLICommands(void);
 TaskHandle_t cmd_task_id;
 TaskHandle_t crypto_manager_task_id;
 TaskHandle_t subscription_manager_task_id;
+TaskHandle_t memory_manager_task_id;
+TaskHandle_t serial_interface_manager_task_id;
+TaskHandle_t channel_manager_task_id;
 
 /* Stringification macros */
 #define STRING(x) STRING_(x)
@@ -67,7 +71,6 @@ mxc_uart_regs_t *ConsoleUART = MXC_UART_GET_UART(CONSOLE_UART);
 #define OUTPUT_BUF_SIZE 512
 
 /***** Functions *****/
-
 void UARTx_IRQHandler(void){
     MXC_UART_AsyncHandler(ConsoleUART);
 }
@@ -238,25 +241,37 @@ int main(void){
         while(1);
     }
 
-    // Flash manager task
-    ret = xTaskCreate(
-        flashManager_vMainTask, (const char *)"FlashManager",
-        FLASH_MANAGER_STACK_SIZE, NULL,
-        tskIDLE_PRIORITY, &subscription_manager_task_id
-    );
-    if (ret != pdPASS){
-        printf("@ERROR xTaskCreate() failed to create FlashManager: %d\n", ret);
-        while(1);
-    }
+    // // Flash manager task
+    // ret = xTaskCreate(
+    //     memoryManager_vMainTask, (const char *)"MemoryManager",
+    //     MEMORY_MANAGER_STACK_SIZE, NULL,
+    //     tskIDLE_PRIORITY, &memory_manager_task_id
+    // );
+    // if (ret != pdPASS){
+    //     printf("@ERROR xTaskCreate() failed to create FlashManager: %d\n", ret);
+    //     while(1);
+    // }
 
     // Serial interface manager task
     ret = xTaskCreate(
         serialInterfaceManager_vMainTask, (const char *)"SerialInterfaceManager",
         SERIAL_INTERFACE_MANAGER_STACK_SIZE, NULL,
-        tskIDLE_PRIORITY, &subscription_manager_task_id
+        tskIDLE_PRIORITY, &serial_interface_manager_task_id
     );
     if (ret != pdPASS){
         printf("@ERROR xTaskCreate() failed to create SerialInterfaceManager: %d\n", ret);
+        while(1);
+    }
+
+    // Channel manager task
+    channelManager_Init();
+    ret = xTaskCreate(
+        channelManager_vMainTask, (const char *)"ChannelManager",
+        CHANNEL_MANAGER_STACK_SIZE, NULL,
+        tskIDLE_PRIORITY, &channel_manager_task_id
+    );
+    if (ret != pdPASS){
+        printf("@ERROR xTaskCreate() failed to create ChannelManager: %d\n", ret);
         while(1);
     }
 
