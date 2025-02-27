@@ -24,6 +24,8 @@
 //----- Public Types -----//
 
 //----- Public Functions -----//
+void serialInterfaceManager_SetTaskId(TaskHandle_t taskId);
+void serialInterfaceManager_Init(void);
 void serialInterfaceManager_vMainTask(void *pvParameters);
 
 #endif
