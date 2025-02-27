@@ -14,7 +14,9 @@ output/*
 **/__pycache__/** 
 
 # Ignore build folders
-ectf25_design.egg-info
+**/*.egg-info/*
+*/output/*
+*.bin
 
 # Ignore Python VM
 .venv

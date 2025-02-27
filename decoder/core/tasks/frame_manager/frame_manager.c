@@ -7,6 +7,7 @@
 #include "string.h"
 
 #include "crypto_manager.h"
+#include "channel_manager.h"
 #include "global_secrets.h"
 #include "host_messaging.h"
 
@@ -315,6 +316,33 @@ static int _decryptData(
     return res;
 }
 
+static int _checkActiveSub(
+    const channel_id_t channel, const timestamp_t time
+){
+    int res;
+
+    QueueHandle_t xRequestQueue = channelManager_RequestQueue();
+
+    //-- Prepare the Sub Update Packet --//
+    ChannelManager_CheckActiveSub checkActiveSub;
+
+    checkActiveSub.channel = channel;
+    checkActiveSub.time = time;
+
+    //-- Assemble Request
+    ChannelManager_Request channelRequest;
+    channelRequest.xRequestingTask = xTaskGetCurrentTaskHandle();
+    channelRequest.requestType = CHANNEL_MANAGER_CHECK_ACTIVE_SUB;
+    channelRequest.requestLen = sizeof(checkActiveSub);
+    channelRequest.pRequest = &checkActiveSub;
+
+    //-- Send Request and Wait
+    xQueueSend(xRequestQueue, &channelRequest, portMAX_DELAY);
+    xTaskNotifyWait(0, 0xFFFFFFFF, (uint32_t*)&res, portMAX_DELAY);
+
+    return res;
+}
+
 static int _decodeFrame(
     FrameManager_Decode *pFrameDecode
 ){
@@ -363,25 +391,20 @@ static int _decodeFrame(
     }
 
     // Check device is subscribed to the channel
-    // TODO: !!ADD!!
-    // if(subscription_is_subscribed(pFramePacket->channel, pFramePacket->time_stamp) == 0){
-    //     STATUS_LED_RED();
-    //     // printf(
-    //     //     "-{E} Decoder does not have valid subscription for channel %u\n",
-    //     //     pFramePacket->channel
-    //     // );
-    //     // printf("-FAIL [No Subscription]\n\n");
-
-    //     host_print_error("Frame No Subscription\n");
-    //     return 1;
-    // }
+    if(_checkActiveSub(pFramePacket->channel, pFramePacket->timeStamp) != 0){
+        // STATUS_LED_RED();
+        // printf(
+        //     "-{E} Decoder does not have valid subscription for channel %u\n",
+        //     pFramePacket->channel
+        // );
+        // printf("-FAIL [No Subscription]\n\n");
+        // host_print_error("Frame No Subscription\n");
+        return 1;
+    }
     // printf(
     //     "-{I} Decoder has valid subscription for channel %u :)\n",
     //     pFramePacket->channel
     // );
-
-    // Check timestamp is in subscription start -> end
-    // TODO: !!ADD!!
 
     // Check timestamp increased
     if(_timestamp_CheckInc(pFramePacket->channel, pFramePacket->timeStamp) != 0){

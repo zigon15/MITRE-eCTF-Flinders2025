@@ -26,14 +26,14 @@
 //----- Public Types -----//
 enum ChannelManager_RequestType {
   CHANNEL_MANAGER_CHECK_ACTIVE_SUB,
-  CHANNEL_MANAGER_GET_SUBSCRIPTION,
+  CHANNEL_MANAGER_GET_SUBS,
   CHANNEL_MANAGER_UPDATE_SUB,
 };
 
 // Check if active subscription structure
 typedef struct {
-  const channel_id_t channel;
-  const timestamp_t time;
+  channel_id_t channel;
+  timestamp_t time;
 } ChannelManager_CheckActiveSub;
 
 // Get all subscriptions structure
@@ -42,7 +42,7 @@ typedef struct {
   channel_id_t channels[MAX_CHANNEL_COUNT];
   timestamp_t timeStart[MAX_CHANNEL_COUNT];
   timestamp_t timeEnd[MAX_CHANNEL_COUNT];
-} ChannelManager_GetSubscription;
+} ChannelManager_GetSubscriptions;
 
 // Update channel information
 typedef struct {
