@@ -19,14 +19,35 @@
 #include "queue.h"
 #include "aes.h"
 
+#include "decoder.h"
+
 //----- Public Constants -----//
 #define FRAME_MANAGER_STACK_SIZE 2048
 
 //----- Public Types -----//
+enum FrameManager_RequestType {
+  FRAME_MANAGER_DECODE,
+};
+
+typedef struct {
+  const uint8_t *pBuff;
+  pkt_len_t pktLen;
+} FrameManager_Decode;
+
+//----- Task Queue Types -----//
+// Subscription task request structure
+typedef struct {
+  TaskHandle_t xRequestingTask;
+  uint8_t requestType;
+  void *pRequest;
+  size_t requestLen;
+} FrameManager_Request;
 
 //----- Public Functions -----//
 void frameManager_Init(void);
 void frameManager_vMainTask(void *pvParameters);
+
+QueueHandle_t frameManager_RequestQueue(void);
 
 // QueueHandle_t cryptoManager_EncryptionQueue(void);
 // QueueHandle_t cryptoManager_SignatureCheckQueue(void);

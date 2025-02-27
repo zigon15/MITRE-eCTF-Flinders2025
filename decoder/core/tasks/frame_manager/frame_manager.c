@@ -30,6 +30,8 @@
 #define FRAME_MIC_KEY_TYPE 0x9E
 #define FRAME_ENCRYPTION_KEY_TYPE 0xD7
 
+#define RTOS_QUEUE_LENGTH 16
+
 //----- Private Types -----//
 typedef struct __attribute__((packed)) {
     uint8_t type;
@@ -53,6 +55,9 @@ typedef struct {
 } channel_time_stamp_t;
 
 //----- Private Variables -----//
+// Task request queue
+static QueueHandle_t _xRequestQueue;
+
 channel_time_stamp_t _channelTimeStamps[MAX_CHANNEL_COUNT];
 
 //----- Private Functions -----//
@@ -229,7 +234,7 @@ static int _checkMic(
 
     //-- Send Request and Wait
     xQueueSend(xRequestQueue, &cryptoRequest, portMAX_DELAY);
-    xTaskNotifyWait(0, 0xFFFFFFFF, &res, portMAX_DELAY);
+    xTaskNotifyWait(0, 0xFFFFFFFF, (uint32_t*)&res, portMAX_DELAY);
 
     printf("[FrameManager] @INFO Signature Check res = %d\n", res);
 
@@ -303,24 +308,23 @@ static int _decryptData(
 
     //-- Send Request and Wait
     xQueueSend(xRequestQueue, &cryptoRequest, portMAX_DELAY);
-    xTaskNotifyWait(0, 0xFFFFFFFF, &res, portMAX_DELAY);
+    xTaskNotifyWait(0, 0xFFFFFFFF, (uint32_t*)&res, portMAX_DELAY);
 
     printf("[FrameManager] @INFO Decryption res = %d\n", res);
     return res;
 }
 
 static int _decodeFrame(
-    const uint8_t *pData, const pkt_len_t pktLen,
-    uint8_t *pPlainText, const size_t plainTextLen
+    FrameManager_Decode *pFrameDecode
 ){
     int res;
 
     printf("\n[FrameManager] @TASK Frame Decode:\n");
 
-    const frame_packet_t *pFramePacket = (const frame_packet_t *)pData;
+    const frame_packet_t *pFramePacket = (const frame_packet_t *)pFrameDecode->pBuff;
 
     printf("[Frame] @TASK Decode Frame:\n");
-    printf("-{I} Packet Len: %u\n", pktLen);
+    printf("-{I} Packet Len: %u\n", pFrameDecode->pktLen);
     printf("-{I} Channel: %lu\n", pFramePacket->channel);
     printf("-{I} Time Stamp: %llu\n", pFramePacket->timeStamp);
     printf("-{I} Frame Length: %u\n", pFramePacket->frameLen);
@@ -328,17 +332,17 @@ static int _decodeFrame(
     printf("-{I} CTR Nonce Rand: ");
     crypto_print_hex(pFramePacket->ctrNonceRand, CTR_NONCE_RAND_LEN);
     printf("-{I} Cypher Text: ");
-    crypto_print_hex(_getCipherText(pData), _calcCipherTextLen(pFramePacket->frameLen));
+    crypto_print_hex(_getCipherText(pFramePacket), _calcCipherTextLen(pFramePacket->frameLen));
     printf("-{I} MIC: ");
-    crypto_print_hex(_getMIC(pFramePacket, pktLen), CRYPTO_MANAGER_MIC_LEN);
+    crypto_print_hex(_getMIC(pFramePacket, pFrameDecode->pktLen), CRYPTO_MANAGER_MIC_LEN);
 
     // Check length is good
     const size_t expectedPacketLen = _expectedPacketLen(pFramePacket->frameLen);
-    if(expectedPacketLen != pktLen){
+    if(expectedPacketLen != pFrameDecode->pktLen){
         // STATUS_LED_RED();
         printf(
             "-{E} Bad Frame Msg Length, Expected %u Bytes != Actual %u Bytes\n",
-            expectedPacketLen, pktLen
+            expectedPacketLen, pFrameDecode->pktLen
         );
         printf("-FAIL [Packet]\n\n");
         // host_print_error("Frame Bad Message Length\n");
@@ -390,7 +394,7 @@ static int _decodeFrame(
     printf("-{I} Frame Time Stamp Increased :)\n");
 
     // Check MIC
-    res = _checkMic(pFramePacket, pktLen);
+    res = _checkMic(pFramePacket, pFrameDecode->pktLen);
     if(res != 0){
         printf("-FAIL [MIC]\n\n");
         return res;
@@ -399,7 +403,7 @@ static int _decodeFrame(
     // Decrypt data
     CRYPTO_CREATE_CLEANUP_BUFFER(pDecryptedData, _calcCipherTextLen(pFramePacket->frameLen));
     res = _decryptData(
-        pFramePacket, pktLen,
+        pFramePacket, pFrameDecode->pktLen,
         pDecryptedData, sizeof(pDecryptedData)
     );
     if(res != 0){
@@ -428,17 +432,53 @@ static int _decodeFrame(
     }
 
     // Copy over plain text
-    const uint8_t *pFrameData = pPlainText+1;
-    if(plainTextLen != pFramePacket->frameLen){
-        printf("-{E} Plain text buffer not big enough!!\n");
-        printf("-FAIL\n");
-        return 1;
-    }
-    memcpy(pPlainText, pFrameData, pFramePacket->frameLen);
+    const uint8_t *pFrameData = pDecryptedData+1;
+    // if(plainTextLen != pFramePacket->frameLen){
+    //     printf("-{E} Plain text buffer not big enough!!\n");
+    //     printf("-FAIL\n");
+    //     return 1;
+    // }
+    // memcpy(pPlainText, pFrameData, pFramePacket->frameLen);
 
     printf("-COMPLETE\n\n");
     // host_write_packet(DECODE_MSG, pFrameData, pFramePacket->frame_len);
     return 0;
+}
+
+static int _processRequest(FrameManager_Request *pRequest){
+    int res = 0;
+
+    //-- Check Request Packet is Good
+    if(pRequest->pRequest == 0){
+        printf("-{E} Bad Request Pointer!!\n"); 
+        return 1;
+    }
+
+    if(pRequest->requestLen == 0){
+        printf("-{E} Bad Request Length!!\n"); 
+        return 1;
+    }
+
+    //-- Execute Request
+    switch (pRequest->requestType){
+        case FRAME_MANAGER_DECODE:
+            printf("-{I} Frame Decode Request\n");
+
+            // Check request length is good
+            if(pRequest->requestLen != sizeof(FrameManager_Decode)){
+                printf("-{E} Bad Request Length!!\n");
+                return 0;
+            }
+
+            FrameManager_Decode *pFrameDecode = pRequest->pRequest;
+            res = _decodeFrame(pFrameDecode);
+            break;
+        default:
+            printf("-{E} Unknown Request Type!!\n");
+            res = 1;
+            break;
+    }
+    return res;
 }
 
 //----- Public Functions -----//
@@ -446,31 +486,51 @@ void frameManager_Init(void){
     for(size_t i = 0; i < MAX_CHANNEL_COUNT; i++){
         _channelTimeStamps[i].active = 0;
     }
+
+    // Setup request queue
+    _xRequestQueue = xQueueCreate(
+        RTOS_QUEUE_LENGTH, sizeof(FrameManager_Request)
+    );
 }
 
 void frameManager_vMainTask(void *pvParameters){
+    FrameManager_Request frameRequest;
+
     while (1){
-        uint8_t framePacket[] = {
-            0x01, 0x00, 0x00, 0x00, 0x6C, 0x86, 0x21, 0x3D, 
-            0x2B, 0xF3, 0x9B, 0xE2, 0xCE, 0x60, 0xE7, 0x86, 
-            0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-            0x0F, 0x3C, 0x2F, 0xBF, 0x28, 0x74, 0xB5, 0x2E, 
-            0xBE, 0xCD, 0x4E, 0xB9, 0x37, 0xD5, 0x3D, 0xC4, 
-            0x35, 0xA5, 0x62, 0xC4, 0xF0, 0xE6, 0x61, 0x86, 
-            0x39, 0xC5, 0x25, 0x94, 0xF8, 0x1A, 0xD3, 0xA4, 
-            0x38,
-        };
+        if (xQueueReceive(_xRequestQueue, &frameRequest, portMAX_DELAY) == pdPASS){
+            printf("[FrameManager] @TASK Received Request\n");
+            int res = _processRequest(&frameRequest);
+            printf("-COMPLETE\n");
 
-        uint8_t frameLength = ((frame_packet_t*)framePacket)->frameLen;
-        uint8_t pPlainText[_calcCipherTextLen(frameLength)];
+            // Signal the requesting task that request is complete
+            xTaskNotify(frameRequest.xRequestingTask, res, eSetValueWithOverwrite);
+        }
 
-        _decodeFrame(
-            framePacket, sizeof(framePacket),
-            pPlainText, frameLength
-        );
+        // uint8_t framePacket[] = {
+        //     0x01, 0x00, 0x00, 0x00, 0x6C, 0x86, 0x21, 0x3D, 
+        //     0x2B, 0xF3, 0x9B, 0xE2, 0xCE, 0x60, 0xE7, 0x86, 
+        //     0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+        //     0x0F, 0x3C, 0x2F, 0xBF, 0x28, 0x74, 0xB5, 0x2E, 
+        //     0xBE, 0xCD, 0x4E, 0xB9, 0x37, 0xD5, 0x3D, 0xC4, 
+        //     0x35, 0xA5, 0x62, 0xC4, 0xF0, 0xE6, 0x61, 0x86, 
+        //     0x39, 0xC5, 0x25, 0x94, 0xF8, 0x1A, 0xD3, 0xA4, 
+        //     0x38,
+        // };
+
+        // uint8_t frameLength = ((frame_packet_t*)framePacket)->frameLen;
+        // uint8_t pPlainText[_calcCipherTextLen(frameLength)];
+
+        // _decodeFrame(
+        //     framePacket, sizeof(framePacket),
+        //     pPlainText, frameLength
+        // );
         // _decodeFrame(framePacket, sizeof(framePacket));
 
         // vTaskDelay(pdMS_TO_TICKS(500));
         while(1);
     }
+}
+
+QueueHandle_t frameManager_RequestQueue(void){
+    return _xRequestQueue;
 }

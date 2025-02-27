@@ -24,7 +24,6 @@
 
 #define CTR_NONCE_RAND_LEN 12
 
-
 #define RTOS_QUEUE_LENGTH 16
 
 //----- Private Types -----//
@@ -45,7 +44,6 @@ typedef struct __attribute__((packed)) {
 //----- Private Variables -----//
 // Task request queue
 static QueueHandle_t _xRequestQueue;
-
 
 //----- Private Functions -----//
 static int _assembleKdfData(
@@ -109,7 +107,6 @@ static int _checkMic(
 ){  
     int res;
     QueueHandle_t xRequestQueue = cryptoManager_RequestQueue();
-    uint32_t ulNotificationValue;
 
     printf("[SubscriptionManager] @INFO Sending Signature Check Request\n");
 
@@ -153,7 +150,7 @@ static int _checkMic(
 
     //-- Send Request and Wait
     xQueueSend(xRequestQueue, &cryptoRequest, portMAX_DELAY);
-    xTaskNotifyWait(0, 0xFFFFFFFF, &res, portMAX_DELAY);
+    xTaskNotifyWait(0, 0xFFFFFFFF, (uint32_t*)&res, portMAX_DELAY);
 
     printf("[SubscriptionManager] @INFO Signature Check res = %d\n", res);
 
@@ -183,7 +180,7 @@ static int _checkDecryptedAuthToken(
 
     //-- Send Request and Wait
     xQueueSend(xRequestQueue, &cryptoRequest, portMAX_DELAY);
-    xTaskNotifyWait(0, 0xFFFFFFFF, &res, portMAX_DELAY);
+    xTaskNotifyWait(0, 0xFFFFFFFF, (uint32_t*)&res, portMAX_DELAY);
 
     printf("[SubscriptionManager] @INFO Signature Check res = %d\n", res);
     return res;
@@ -254,7 +251,7 @@ static int _decryptData(
 
     //-- Send Request and Wait
     xQueueSend(xRequestQueue, &cryptoRequest, portMAX_DELAY);
-    xTaskNotifyWait(0, 0xFFFFFFFF, &res, portMAX_DELAY);
+    xTaskNotifyWait(0, 0xFFFFFFFF, (uint32_t*)&res, portMAX_DELAY);
 
     printf("[SubscriptionManager] @INFO Decryption res = %d\n", res);
     return res;
@@ -283,7 +280,7 @@ static int _updateSubscription(
 
     //-- Send Request and Wait
     xQueueSend(xRequestQueue, &channelRequest, portMAX_DELAY);
-    xTaskNotifyWait(0, 0xFFFFFFFF, &res, portMAX_DELAY);
+    xTaskNotifyWait(0, 0xFFFFFFFF, (uint32_t*)&res, portMAX_DELAY);
 
     printf("[SubscriptionManager] @INFO Update Subscription res = %d\n", res);
 
@@ -396,8 +393,6 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
     return 0;
 }
 
-
-
 static int _processRequest(SubscriptionManager_Request *pRequest){
     int res = 0;
 
@@ -444,8 +439,6 @@ void subscriptionManager_Init(void){
 }
 
 void subscriptionManager_vMainTask(void *pvParameters){
-
-
     SubscriptionManager_Request subscriptionRequest;
 
     while (1){

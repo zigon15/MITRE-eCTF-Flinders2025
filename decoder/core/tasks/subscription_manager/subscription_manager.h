@@ -31,7 +31,7 @@ enum SubscriptionManager_RequestType {
 
 // Pass update subscription packet
 typedef struct {
-  uint8_t *pBuff;
+  const uint8_t *pBuff;
   pkt_len_t pktLen;
 } SubscriptionManager_SubscriptionUpdate;
 
