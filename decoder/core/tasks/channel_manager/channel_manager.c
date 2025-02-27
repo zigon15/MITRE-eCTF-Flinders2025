@@ -14,11 +14,12 @@
 #define FLASH_FIRST_BOOT 0xDAD398CD
 
 //----- Private Types -----//
-// Task request queue
-static QueueHandle_t _xRequestQueue;
 
 //----- Private Variables -----//
 static flash_entry_t _decoder_status;
+
+// Task request queue
+static QueueHandle_t _xRequestQueue;
 
 //----- Private Functions -----//
 /** @brief Prints all the channels the decoder has a subscription for.

@@ -19,16 +19,34 @@
 #include "queue.h"
 #include "aes.h"
 
+#include "decoder.h"
+
 //----- Public Constants -----//
 #define SUBSCRIPTION_MANAGER_STACK_SIZE 2048
 
 //----- Public Types -----//
+enum SubscriptionManager_RequestType {
+  SUBSCRIPTION_MANAGER_SUB_UPDATE,
+};
+
+// Pass update subscription packet
+typedef struct {
+  uint8_t *pBuff;
+  pkt_len_t pktLen;
+} SubscriptionManager_SubscriptionUpdate;
+
+//----- Task Queue Types -----//
+// Subscription task request structure
+typedef struct {
+  TaskHandle_t xRequestingTask;
+  uint8_t requestType;
+  void *pRequest;
+  size_t requestLen;
+} SubscriptionManager_Request;
 
 //----- Public Functions -----//
 void subscriptionManager_vMainTask(void *pvParameters);
 
-// QueueHandle_t cryptoManager_EncryptionQueue(void);
-// QueueHandle_t cryptoManager_SignatureCheckQueue(void);
-
+QueueHandle_t subscriptionManager_RequestQueue(void);
 
 #endif

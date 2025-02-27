@@ -24,6 +24,9 @@
 
 #define CTR_NONCE_RAND_LEN 12
 
+
+#define RTOS_QUEUE_LENGTH 16
+
 //----- Private Types -----//
 typedef struct __attribute__((packed)) {
     uint8_t type;
@@ -40,6 +43,8 @@ typedef struct __attribute__((packed)) {
   } subscription_update_packet_t;
 
 //----- Private Variables -----//
+// Task request queue
+static QueueHandle_t _xRequestQueue;
 
 
 //----- Private Functions -----//
@@ -287,29 +292,29 @@ static int _updateSubscription(
     return 0;
 }
 
-static int _addSubscription(const uint8_t *pData, const pkt_len_t pkt_len){
+static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
     int res;
 
     printf("\n[Subscription] @TASK Subscription Update:\n");
 
     // Check length is good
-    if(((pkt_len % SUBSCRIPTION_UPDATE_MSG_LEN) != 0) || (sizeof(subscription_update_packet_t) != SUBSCRIPTION_UPDATE_MSG_LEN)){
+    if(((pSubUpdate->pktLen % SUBSCRIPTION_UPDATE_MSG_LEN) != 0) || (sizeof(subscription_update_packet_t) != SUBSCRIPTION_UPDATE_MSG_LEN)){
         // STATUS_LED_RED();
         printf(
             "-{E} Bad Subscription Update Msg Length, Expected Multiple of %u Bytes != Actual %u Bytes\n",
-            SUBSCRIPTION_UPDATE_MSG_LEN, pkt_len
+            SUBSCRIPTION_UPDATE_MSG_LEN, pSubUpdate->pktLen
         );
         printf("-FAIL [Packet]\n\n");
         // host_print_error("Subscription Update: Bad packet size\n");
         return 1;
     }
 
-    size_t numPackets = pkt_len / SUBSCRIPTION_UPDATE_MSG_LEN;
+    size_t numPackets = pSubUpdate->pktLen / SUBSCRIPTION_UPDATE_MSG_LEN;
     printf("-{I} %u Subscription Update Packets\n", numPackets);
 
     // Process all the subscription update packets
     for(size_t x = 0; x < numPackets; x++){
-        const subscription_update_packet_t *pUpdate = (const subscription_update_packet_t *)(pData + x*sizeof(subscription_update_packet_t));
+        const subscription_update_packet_t *pUpdate = (const subscription_update_packet_t *)(pSubUpdate->pBuff + x*sizeof(subscription_update_packet_t));
 
         // Check channel is not the emergency channel
         if (pUpdate->channel == EMERGENCY_CHANNEL) {
@@ -393,22 +398,66 @@ static int _addSubscription(const uint8_t *pData, const pkt_len_t pkt_len){
     return 0;
 }
 
+
+
+static int _processRequest(SubscriptionManager_Request *pRequest){
+    int res = 0;
+
+    //-- Check Request Packet is Good
+    if(pRequest->pRequest == 0){
+        printf("-{E} Bad Request Pointer!!\n"); 
+        return 1;
+    }
+
+    if(pRequest->requestLen == 0){
+        printf("-{E} Bad Request Length!!\n"); 
+        return 1;
+    }
+
+    //-- Execute Request
+    switch (pRequest->requestType){
+        case SUBSCRIPTION_MANAGER_SUB_UPDATE:
+            printf("-{I} Subscription Update Request\n");
+
+            // Check request length is good
+            if(pRequest->requestLen != sizeof(SubscriptionManager_SubscriptionUpdate)){
+                printf("-{E} Bad Request Length!!\n");
+                return 0;
+            }
+
+            SubscriptionManager_SubscriptionUpdate *pSubUpdate = pRequest->pRequest;
+            res = _addSubscription(pSubUpdate);
+            break;
+        default:
+            printf("-{E} Unknown Request Type!!\n");
+            res = 1;
+            break;
+    }
+    return res;
+}
+
+
 //----- Public Functions -----//
 void subscriptionManager_vMainTask(void *pvParameters){
-    while (1){
-        uint8_t subRequestPacket[] = {
-            0x01, 0x00, 0x00, 0x00, 0xDA, 0xB8, 0x70, 0x45, 
-            0x2C, 0xDF, 0xF3, 0x8C, 0xD5, 0x7E, 0xD0, 0x67, 
-            0x51, 0x3B, 0x6A, 0x78, 0xD4, 0x14, 0x04, 0xD1, 
-            0x7E, 0x60, 0xA5, 0x5B, 0xA5, 0x37, 0xBB, 0x8B, 
-            0xFD, 0xC4, 0x5C, 0xF3, 0x20, 0x1F, 0x7E, 0x75, 
-            0x51, 0x27, 0x8C, 0x1E, 0x2E, 0xA9, 0x8B, 0x7F, 
-            0xC0, 0xE5, 0x16, 0x7A, 0xA0, 0x86, 0x58, 0x8E, 
-            0xBE, 0x28, 0xBA, 0x8A, 0x46, 0x77, 0x97, 0x5A,
-        };
-        _addSubscription(subRequestPacket, sizeof(subRequestPacket));
+    // Setup request queue
+    _xRequestQueue = xQueueCreate(
+        RTOS_QUEUE_LENGTH, sizeof(SubscriptionManager_Request)
+    );
 
-        // vTaskDelay(pdMS_TO_TICKS(500));
-        while(1);
+    SubscriptionManager_Request subscriptionRequest;
+
+    while (1){
+        if (xQueueReceive(_xRequestQueue, &subscriptionRequest, portMAX_DELAY) == pdPASS){
+            printf("[SubscriptionManager] @TASK Received Request\n");
+            int res = _processRequest(&subscriptionRequest);
+            printf("-COMPLETE\n");
+
+            // Signal the requesting task that request is complete
+            xTaskNotify(subscriptionRequest.xRequestingTask, res, eSetValueWithOverwrite);
+        }
     }
+}
+
+QueueHandle_t subscriptionManager_RequestQueue(void){
+    return _xRequestQueue;
 }
