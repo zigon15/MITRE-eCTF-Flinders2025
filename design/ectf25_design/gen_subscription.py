@@ -20,7 +20,7 @@ from cryptography.hazmat.backends import default_backend
 
 from loguru import logger
 
-from global_secrets import *
+from .global_secrets import *
 
 # Length of each AES key in bits and bytes notation
 AES_KEY_LEN_BIT = 256
@@ -70,7 +70,7 @@ def subscription_derive_keys(
     
     # logger.info(f"KDF AES CTR Nonce Rand -> 0x{ctr_nonce_rand.hex()}")
     # logger.info(f"KDF AES CTR Nonce -> 0x{ctr_nonce.hex()}")
-    logger.info(f"KDF AES CTR Key -> 0x{subscription_kdf_key.hex()}")
+    # logger.info(f"KDF AES CTR Key -> 0x{subscription_kdf_key.hex()}")
 
     cipher = Cipher(
         algorithms.AES(subscription_kdf_key), 
@@ -96,9 +96,9 @@ def subscription_derive_keys(
     mic_key = encryptor.update(input_bytes) + encryptor.finalize()
     mic_key = mic_key
 
-    logger.info(f"MIC AES CTR KDF Nonce -> 0x{ctr_nonce.hex()}")
-    logger.info(f"MIC KDF Input Data -> 0x{input_bytes.hex()}")
-    logger.info(f"MIC Key -> 0x{mic_key.hex()}")
+    # logger.info(f"MIC AES CTR KDF Nonce -> 0x{ctr_nonce.hex()}")
+    # logger.info(f"MIC KDF Input Data -> 0x{input_bytes.hex()}")
+    # logger.info(f"MIC Key -> 0x{mic_key.hex()}")
     
     # Input data to derive encryption key from
     # [0]: SUBSCRIPTION_ENCRYPTION_KEY_TYPE (1 byte)
@@ -129,9 +129,9 @@ def subscription_derive_keys(
     encryption_key = encryptor.update(input_bytes) + encryptor.finalize()
     encryption_key = encryption_key
 
-    logger.info(f"Encryption AES CTR KDF Nonce -> 0x{ctr_nonce.hex()}")
-    logger.info(f"Encryption KDF Input Data -> 0x{input_bytes.hex()}")
-    logger.info(f"Encryption Key -> 0x{encryption_key.hex()}")
+    # logger.info(f"Encryption AES CTR KDF Nonce -> 0x{ctr_nonce.hex()}")
+    # logger.info(f"Encryption KDF Input Data -> 0x{input_bytes.hex()}")
+    # logger.info(f"Encryption Key -> 0x{encryption_key.hex()}")
 
     return mic_key, encryption_key, ctr_nonce_rand
 
@@ -161,9 +161,9 @@ def subscription_encrypt_payload(
     encryptor = cipher.encryptor()
     cypher_text = encryptor.update(plain_text) + encryptor.finalize()
 
-    logger.info(f"Encryption AES CTR Nonce -> 0x{ctr_nonce.hex()}")
-    logger.info(f"Encryption Input Data -> 0x{plain_text.hex()}")
-    logger.info(f"Encryption Cypher Text -> 0x{cypher_text.hex()}")
+    # logger.info(f"Encryption AES CTR Nonce -> 0x{ctr_nonce.hex()}")
+    # logger.info(f"Encryption Input Data -> 0x{plain_text.hex()}")
+    # logger.info(f"Encryption Cypher Text -> 0x{cypher_text.hex()}")
     
     return cypher_text
 
@@ -243,8 +243,8 @@ def gen_subscription(
     cmac.update(subscription_update_msg)
     mic = cmac.finalize()
 
-    logger.info(f"AES CMAC Input -> 0x{subscription_update_msg.hex()}")
-    logger.info(f"MIC -> 0x{mic.hex()}")
+    # logger.info(f"AES CMAC Input -> 0x{subscription_update_msg.hex()}")
+    # logger.info(f"MIC -> 0x{mic.hex()}")
 
     assert(len(mic) == AES_CMAC_MIC_LEN)
 
@@ -256,14 +256,14 @@ def gen_subscription(
         exit()
 
     # Print out subscription update message for debugging
-    logger.info(f"Subscription Update Message -> 0x{subscription_update_msg.hex()}")
+    # logger.info(f"Subscription Update Message -> 0x{subscription_update_msg.hex()}")
 
-    for i in range(len(subscription_update_msg)):
-        if i % 8 == 0 and i != 0:
-            print()
+    # for i in range(len(subscription_update_msg)):
+    #     if i % 8 == 0 and i != 0:
+    #         print()
         
-        print(f"0x{subscription_update_msg[i]:02X}, ", end="")
-    print()
+    #     print(f"0x{subscription_update_msg[i]:02X}, ", end="")
+    # print()
 
     # Subscription update will be sent to the decoder with ectf25.tv.subscribe
     return subscription_update_msg
