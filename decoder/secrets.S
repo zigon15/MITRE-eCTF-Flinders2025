@@ -4,10 +4,10 @@
 secrets_bin_start:
 #ifdef DEV_BUILD
     #warning "Development Build!!"
-    .incbin "../global.secrets/secrets.bin"  // Include global secrets file
+    .incbin "../global.secrets"  // Include global secrets file
 #else
     #warning "Production Build!!"
-    .incbin "/global.secrets/secrets.bin"  // Include global secrets file
+    .incbin "/global.secrets"  // Include global secrets file
 #endif
 secrets_bin_end:
     .global secrets_bin_start

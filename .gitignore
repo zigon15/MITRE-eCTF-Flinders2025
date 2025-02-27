@@ -17,6 +17,7 @@ output/*
 **/*.egg-info/*
 */output/*
 *.bin
+global.secrets
 
 # Ignore Python VM
 .venv
