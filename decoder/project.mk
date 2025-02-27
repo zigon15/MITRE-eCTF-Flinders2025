@@ -25,6 +25,7 @@ IPATH+=core/tasks/subscription_manager/
 IPATH+=core/tasks/memory_manager/
 IPATH+=core/tasks/serial_interface_manager/
 IPATH+=core/tasks/channel_manager/
+IPATH+=core/tasks/frame_manager/
 
 IPATH+=/global_secrets.S
 
@@ -37,6 +38,7 @@ VPATH+=core/tasks/subscription_manager
 VPATH+=core/tasks/memory_manager
 VPATH+=core/tasks/serial_interface_manager
 VPATH+=core/tasks/channel_manager
+VPATH+=core/tasks/frame_manager
 
 # Add your config here!
 DEBUG=1

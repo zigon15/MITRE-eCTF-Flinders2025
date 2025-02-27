@@ -37,8 +37,8 @@ typedef struct __attribute__((packed)) {
   
   typedef struct __attribute__((packed)) {
     channel_id_t channel;
-    uint8_t ctr_nonce_rand[CTR_NONCE_RAND_LEN];
-    uint8_t cipher_text[SUBSCRIPTION_CIPHER_TEXT_LEN];
+    uint8_t ctrNonceRand[CTR_NONCE_RAND_LEN];
+    uint8_t cipherText[SUBSCRIPTION_CIPHER_TEXT_LEN];
     uint8_t mic[CRYPTO_MANAGER_MIC_LEN];
   } subscription_update_packet_t;
 
@@ -83,7 +83,7 @@ static int _assembleKdfData(
     // [0]: Decoder ID (4 Bytes, Big Endian)
     // [4]: Nonce Rand (12 Bytes)
     uint32_t decoderId = cryptoManager_DecoderId();
-    memcpy((pKdfData->pNonce)+sizeof(uint32_t), pSubscriptionPacket->ctr_nonce_rand, CTR_NONCE_RAND_LEN);
+    memcpy((pKdfData->pNonce)+sizeof(uint32_t), pSubscriptionPacket->ctrNonceRand, CTR_NONCE_RAND_LEN);
     for(size_t i = 0; i < sizeof(uint32_t); i++){
         pKdfData->pNonce[i] = ((uint8_t*)&decoderId)[3-i];
     }
@@ -97,8 +97,6 @@ static int _assembleKdfData(
             }
         }
     }
-
-    CRYPTO_CREATE_CLEANUP_BUFFER(pCipherText, SUBSCRIPTION_KDF_DATA_LENGTH);
 
     // Copy required data into given kdf data object
     memcpy(pKdfData->pData, &subscriptionKdfData, SUBSCRIPTION_KDF_DATA_LENGTH);
@@ -236,14 +234,14 @@ static int _decryptData(
     // [0]: 0x00 (4 Bytes)
     // [4]: Nonce Rand (12 Bytes)
     CRYPTO_CREATE_CLEANUP_BUFFER(pCtrNonce, CRYPTO_AES_BLOCK_SIZE_BYTE);
-    memcpy(pCtrNonce+sizeof(uint32_t), pSubscriptionPacket->ctr_nonce_rand, CTR_NONCE_RAND_LEN);
+    memcpy(pCtrNonce+sizeof(uint32_t), pSubscriptionPacket->ctrNonceRand, CTR_NONCE_RAND_LEN);
     for(size_t i = 0; i < sizeof(uint32_t); i++){
         pCtrNonce[i] = 0x00;
     }
     cryptoDecrypt.pNonce = pCtrNonce;
 
     cryptoDecrypt.length = SUBSCRIPTION_CIPHER_TEXT_LEN;
-    cryptoDecrypt.pCipherText = pSubscriptionPacket->cipher_text;
+    cryptoDecrypt.pCipherText = pSubscriptionPacket->cipherText;
 
     cryptoDecrypt.pPlainText = pPlainText;
 
@@ -342,9 +340,9 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
 
         printf("-{I} Channel: %u\n", pUpdate->channel);
         printf("-{I} CTR Nonce Rand: ");
-        crypto_print_hex(pUpdate->ctr_nonce_rand, 12);
+        crypto_print_hex(pUpdate->ctrNonceRand, 12);
         printf("-{I} Cypher Text: ");
-        crypto_print_hex(pUpdate->cipher_text, SUBSCRIPTION_CIPHER_TEXT_LEN);
+        crypto_print_hex(pUpdate->cipherText, SUBSCRIPTION_CIPHER_TEXT_LEN);
         printf("-{I} MIC: ");
         crypto_print_hex(pUpdate->mic, CRYPTO_MANAGER_MIC_LEN);
 
@@ -438,11 +436,15 @@ static int _processRequest(SubscriptionManager_Request *pRequest){
 
 
 //----- Public Functions -----//
-void subscriptionManager_vMainTask(void *pvParameters){
+void subscriptionManager_Init(void){
     // Setup request queue
     _xRequestQueue = xQueueCreate(
         RTOS_QUEUE_LENGTH, sizeof(SubscriptionManager_Request)
     );
+}
+
+void subscriptionManager_vMainTask(void *pvParameters){
+
 
     SubscriptionManager_Request subscriptionRequest;
 

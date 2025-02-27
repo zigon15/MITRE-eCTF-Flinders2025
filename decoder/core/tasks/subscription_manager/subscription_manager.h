@@ -45,6 +45,7 @@ typedef struct {
 } SubscriptionManager_Request;
 
 //----- Public Functions -----//
+void subscriptionManager_Init(void);
 void subscriptionManager_vMainTask(void *pvParameters);
 
 QueueHandle_t subscriptionManager_RequestQueue(void);

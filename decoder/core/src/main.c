@@ -45,6 +45,7 @@
 #include "memory_manager.h"
 #include "serial_interface_manager.h"
 #include "channel_manager.h"
+#include "frame_manager.h"
 
 /* FreeRTOS+CLI */
 void vRegisterCLICommands(void);
@@ -56,6 +57,7 @@ TaskHandle_t subscription_manager_task_id;
 TaskHandle_t memory_manager_task_id;
 TaskHandle_t serial_interface_manager_task_id;
 TaskHandle_t channel_manager_task_id;
+TaskHandle_t frame_manager_task_id;
 
 /* Stringification macros */
 #define STRING(x) STRING_(x)
@@ -231,6 +233,7 @@ int main(void){
     }
 
     // Subscription manager task
+    subscriptionManager_Init();
     ret = xTaskCreate(
         subscriptionManager_vMainTask, (const char *)"SubscriptionManager",
         SUBSCRIPTION_MANAGER_STACK_SIZE, NULL,
@@ -272,6 +275,18 @@ int main(void){
     );
     if (ret != pdPASS){
         printf("@ERROR xTaskCreate() failed to create ChannelManager: %d\n", ret);
+        while(1);
+    }
+
+    // Frame manager task
+    frameManager_Init();
+    ret = xTaskCreate(
+        frameManager_vMainTask, (const char *)"FrameManager",
+        FRAME_MANAGER_STACK_SIZE, NULL,
+        tskIDLE_PRIORITY, &frame_manager_task_id
+    );
+    if (ret != pdPASS){
+        printf("@ERROR xTaskCreate() failed to create FrameManager: %d\n", ret);
         while(1);
     }
 

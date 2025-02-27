@@ -109,7 +109,6 @@ static int _decryptData(const CryptoManager_DecryptData *pDecrypt){
     printf("-{I} Decryption Plain Text: ");
     crypto_print_hex(pDecrypt->pPlainText, pDecrypt->length);
 
-
     return 0;
 }
 
