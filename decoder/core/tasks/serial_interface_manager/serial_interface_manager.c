@@ -12,44 +12,15 @@
 #include "subscription_manager.h"
 #include "frame_manager.h"
 
+#include "simple_uart.h"
+#include "host_messaging.h"
+#include "status_led.h"
+
 //----- Private Constants -----//
 #define INPUT_BUFFER_SIZE 512
 #define OUTPUT_BUFFER_SIZE 512
 
 //----- Private Types -----//
-#define CMD_TYPE_LEN sizeof(char)
-#define CMD_LEN_LEN sizeof(uint16_t)
-#define MSG_MAGIC '%'     // '%' - 0x25
-#define MAX_ALLOWED_LEN 65535
-
-typedef enum {
-    DECODE_MSG = 'D',     // 'D' - 0x44
-    SUBSCRIBE_MSG = 'S',  // 'S' - 0x53
-    LIST_MSG = 'L',       // 'L' - 0x4c
-    ACK_MSG = 'A',        // 'A' - 0x41
-    DEBUG_MSG = 'G',      // 'G' - 0x47
-    ERROR_MSG = 'E',      // 'E' - 0x45
-} msg_type_t;
-
-// Tells the compiler not to pad the struct members
-#pragma pack(push, 1) 
-
-typedef struct {
-    char magic;    // Should be MSG_MAGIC
-    char cmd;      // msg_type_t
-    uint16_t len;
-} msg_header_t;
-
-// Tells the compiler to resume padding struct members
-#pragma pack(pop) 
-
-enum MsgProgress{
-    MSG_WAIT_MAGIC_BYTE,
-    MSG_WAIT_HEADER,
-    MSG_WRITE_ACK,
-    MSG_WAIT_ACK,
-    MSG_WAIT_DATA,
-};
 
 //----- Private Variables -----//
 TaskHandle_t _taskId;
@@ -59,6 +30,17 @@ static int _decodeFrame(
     const uint8_t *pBuff, const size_t length
 ){
     int res;
+
+    // uint8_t pFrame[] = {
+    //     0x01, 0x00, 0x00, 0x00, 0xF1, 0x02, 0x88, 0xFA, 
+    //     0x89, 0x19, 0x81, 0xF2, 0xC1, 0x44, 0x3E, 0x3A, 
+    //     0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+    //     0x0F, 0x2A, 0x40, 0x32, 0x27, 0x35, 0x58, 0x0D, 
+    //     0xCF, 0x14, 0x4E, 0x23, 0x3B, 0x3A, 0xA6, 0xF5, 
+    //     0x46, 0xAA, 0xBE, 0x48, 0xD1, 0x5A, 0x92, 0x9A, 
+    //     0x75, 0xBD, 0x35, 0x9C, 0x80, 0x1F, 0x90, 0xCB, 
+    //     0xFB,
+    // };
 
     QueueHandle_t xRequestQueue = frameManager_RequestQueue();
 
@@ -109,17 +91,8 @@ static int _subscriptionUpdate(
     return res;
 }
 
-/** @brief vCmdLineTask_cb 
- * Callback on asynchronous reads to wake the waiting command
- *  processor task
- */
-static void _newUartData_cb(mxc_uart_req_t *req, int error){
-    BaseType_t xHigherPriorityTaskWoken;
+static int _listChannels(){
 
-    // Wake the task
-    xHigherPriorityTaskWoken = pdFALSE;
-    vTaskNotifyGiveFromISR(_taskId, &xHigherPriorityTaskWoken);
-    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
 //----- Public Functions -----//
@@ -128,127 +101,90 @@ void serialInterfaceManager_SetTaskId(TaskHandle_t taskId){
 }
 
 void serialInterfaceManager_Init(void){
-
+    uart_init();
 }
 
 void serialInterfaceManager_vMainTask(void *pvParameters){
     //-- Setup UART --//
     // Enable UART0 interrupt
-    NVIC_ClearPendingIRQ(UART0_IRQn);
-    NVIC_DisableIRQ(UART0_IRQn);
-    NVIC_SetPriority(UART0_IRQn, 5);
-    NVIC_EnableIRQ(UART0_IRQn);
-    
-    // Async read will be used to wake process
-    mxc_uart_req_t async_read_req;
-    uint8_t rxData;
-
-    async_read_req.uart = MXC_UART_GET_UART(CONSOLE_UART);
-    async_read_req.rxData = &rxData;
-    async_read_req.rxLen = 1;
-    async_read_req.txData = NULL;
-    async_read_req.txLen = 0;
-    async_read_req.callback = _newUartData_cb;
+    // NVIC_ClearPendingIRQ(UART0_IRQn);
+    // NVIC_DisableIRQ(UART0_IRQn);
+    // NVIC_SetPriority(UART0_IRQn, 5);
+    // NVIC_EnableIRQ(UART0_IRQn);
 
     int uartReadLen = 1;
 
     // State for managing message processing
-    int rxMsgProgress = MSG_WAIT_MAGIC_BYTE;
-    msg_header_t msgHeader;
-    uint8_t inputMsgData[INPUT_BUFFER_SIZE];
+    char output_buf[256] = {0};
+    uint8_t uart_buf[INPUT_BUFFER_SIZE];
 
-    int dataCounter = 0;
+    msg_type_t cmd;
+    int result;
+    uint16_t pkt_len;
+
+    host_print_debug("Decoder Booted!\n");
+
+    int res;
 
     while (1){
-        // Register async read request
-        if (MXC_UART_TransactionAsync(&async_read_req) != E_NO_ERROR) {
-            printf("Error registering async request. Command line unavailable.\n");
-            vTaskDelay(portMAX_DELAY);
+        host_print_debug("Ready\n");
+
+        STATUS_LED_GREEN();
+
+        result = host_read_packet(&cmd, uart_buf, INPUT_BUFFER_SIZE, &pkt_len);
+
+        if(result < 0){
+            STATUS_LED_ERROR();
+            host_print_error("Failed to receive cmd from host\n");
+            continue;
         }
-        // Hang here until ISR wakes us for a character
-        ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        
-         // Check that we have a valid character
-         if (async_read_req.rxCnt > 0) {
-            // Continually process characters
-            // - Initial tmp is set my async process so always process the one character at least
-            do {
-                switch (rxMsgProgress){
-                    // Wait for magic byte indicating message start
-                    case MSG_WAIT_MAGIC_BYTE:
-                        if(rxData == MSG_MAGIC){
-                            memset(msgHeader, 0, sizeof(msgHeader));
-                            dataCounter = 0;
 
-                            rxMsgProgress = MSG_WAIT_HEADER;
-                        }
-                        break;
-
-                    // Process header
-                    case MSG_WAIT_HEADER:
-                        (uint8_t*)(&msgHeader)[dataCounter] = rxData;
-                        dataCounter++;
-
-                        // Check if header received
-                        if(dataCounter == sizeof(msgHeader)){
-                            dataCounter = 0;
-                            
-                            // Figure out what to do next based on header command :)
-
-                            // Ack message so no data
-                            if (msgHeader.cmd == ACK_MSG) {
-                                rxMsgProgress = MSG_WAIT_MAGIC_BYTE;
-                                break;
-                            }
-
-                            // ACK the header
-                            if (host_write_ack() < 0) { 
-                                rxMsgProgress = MSG_WAIT_MAGIC_BYTE;
-                                break;
-                            }
-                        }
-                        break;
-
-                    // Write ack
-                    case MSG_WRITE_ACK:
-                        if(){
-                            // Check data fits in buffer
-                            if (header.len > INPUT_BUFFER_SIZE) {
-                                rxMsgProgress = MSG_WAIT_MAGIC_BYTE;
-                                break;
-                            }
-
-                            // No data attached so wait for next command
-                            if (header.len == 0) {
-                                rxMsgProgress = MSG_WAIT_MAGIC_BYTE;
-                                break;
-                            }
-
-                            // Next step is to read in data
-                            rxMsgProgress = MSG_WAIT_DATA;
-                        }
-                        break;
-                    // Process data attached to header
-                    case MSG_WAIT_DATA:
-                        inputMsgData[dataCounter] = rxData;
-                        dataCounter++;
-
-                        // Check if full data packet has been received
-                        if(dataCounter == msgHeader.len){
-                        }
-
-                        break;
-                    default:
-                        break;
+        // Handle the requested command
+        switch(cmd){
+            // Handle list command
+            case LIST_MSG:
+                STATUS_LED_CYAN();
+                res = _listChannels();
+                if(res != 0){
+                    host_print_error("Decode Failed\n");
                 }
-                
-                uartReadLen = 1;
-                // If more characters are ready, continually process them
-            } while (
-                (MXC_UART_GetRXFIFOAvailable(MXC_UART_GET_UART(CONSOLE_UART)) > 0) &&
-                (MXC_UART_Read(CONSOLE_UART, (uint8_t *)&rxData, &uartReadLen) == 0)
-            );
+                break;
+
+            // Handle decode command
+            case DECODE_MSG:
+                STATUS_LED_PURPLE();
+                res = _decodeFrame(uart_buf, pkt_len);
+                if(res != 0){
+                    host_print_error("Decode Failed\n");
+                }
+                break;
+
+            // Handle subscribe command
+            case SUBSCRIBE_MSG:
+                STATUS_LED_YELLOW();
+                res = _subscriptionUpdate(uart_buf, pkt_len);
+                if(res != 0){
+                    host_print_error("Subscription Update Failed\n");
+                }
+                break;
+
+            // Handle bad command
+            default:
+                STATUS_LED_ERROR();
+                sprintf(output_buf, "Invalid Command: %c\n", cmd);
+                host_print_error(output_buf);
+                break;
         }
+
+        // // Register async read request
+        // if (MXC_UART_TransactionAsync(&async_read_req) != E_NO_ERROR) {
+        //     printf("Error registering async request. Command line unavailable.\n");
+        //     vTaskDelay(portMAX_DELAY);
+        // }
+
+        // // Hang here until ISR wakes us for a character
+        // ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+        
 
         // int res;
        

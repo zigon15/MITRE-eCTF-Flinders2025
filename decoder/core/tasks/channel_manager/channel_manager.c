@@ -25,26 +25,26 @@ static QueueHandle_t _xRequestQueue;
 /** @brief Prints all the channels the decoder has a subscription for.
  *
 */
-static void _printActiveChannels(void){
-    printf("[ChannelManager] @INFO Active Channels:\n");
-    for (size_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
-        if (_decoder_status.subscribed_channels[i].active) {
-            printf(
-                "-{I} [%u] {Channel: %lu, Time Stamp Start: %llu, Time Stamp End: %llu}\n",
-                i, _decoder_status.subscribed_channels[i].id, 
-                _decoder_status.subscribed_channels[i].start_timestamp,
-                _decoder_status.subscribed_channels[i].end_timestamp
-            );
-        }
-    }
-    printf("-COMPLETE\n\n");
-}
+// static void _printActiveChannels(void){
+//     printf("[ChannelManager] @INFO Active Channels:\n");
+//     for (size_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
+//         if (_decoder_status.subscribed_channels[i].active) {
+//             printf(
+//                 "-{I} [%u] {Channel: %lu, Time Stamp Start: %llu, Time Stamp End: %llu}\n",
+//                 i, _decoder_status.subscribed_channels[i].id, 
+//                 _decoder_status.subscribed_channels[i].start_timestamp,
+//                 _decoder_status.subscribed_channels[i].end_timestamp
+//             );
+//         }
+//     }
+//     printf("-COMPLETE\n\n");
+// }
 
 static int _updateSub(const ChannelManager_UpdateSubscription *pUpdateSub){
     // Find:
     // - Existing subscription for specified channel
     // - If no existing subscription for channel, then first empty slot
-    printf("-{I} Looking for existing subscription for channel %u or free slot\n", pUpdateSub->channel);
+    // printf("-{I} Looking for existing subscription for channel %u or free slot\n", pUpdateSub->channel);
     uint8_t foundIdx = 0;
     uint8_t idx = 0;
     for (size_t i = 0; i < MAX_CHANNEL_COUNT; i++) {
@@ -53,7 +53,7 @@ static int _updateSub(const ChannelManager_UpdateSubscription *pUpdateSub){
         if (_decoder_status.subscribed_channels[i].id == pUpdateSub->channel) {
             idx = i;
             foundIdx = 1;
-            printf("-{I} Found Existing Subscription :)\n");
+            // printf("-{I} Found Existing Subscription :)\n");
             break;
         }
 
@@ -62,7 +62,7 @@ static int _updateSub(const ChannelManager_UpdateSubscription *pUpdateSub){
         if(!_decoder_status.subscribed_channels[i].active && foundIdx == 0){
             idx = i;
             foundIdx = 1;
-            printf("-{I} Found Empty Slot but Looking for Existing Subscription\n");
+            // printf("-{I} Found Empty Slot but Looking for Existing Subscription\n");
         }
     }
 
@@ -70,7 +70,7 @@ static int _updateSub(const ChannelManager_UpdateSubscription *pUpdateSub){
     // - No space left in subscriptions array :(
     if (foundIdx == 0) {
         // STATUS_LED_RED();
-        printf("-FAIL [Max Subscription]\n\n");
+        // printf("-FAIL [Max Subscription]\n\n");
         // host_print_error("Subscription Update: Max Subscriptions\n");
         return 1;
     }
@@ -81,10 +81,10 @@ static int _updateSub(const ChannelManager_UpdateSubscription *pUpdateSub){
     _decoder_status.subscribed_channels[idx].start_timestamp = pUpdateSub->timeStart;
     _decoder_status.subscribed_channels[idx].end_timestamp = pUpdateSub->timeEnd;
 
-    printf(
-        "-{I} Subscription Update Successful {Idx: %u, Channel: %u, Start: %llu, End: %llu}\n",
-        idx, pUpdateSub->channel, pUpdateSub->timeStart, pUpdateSub->timeEnd
-    );
+    // printf(
+    //     "-{I} Subscription Update Successful {Idx: %u, Channel: %u, Start: %llu, End: %llu}\n",
+    //     idx, pUpdateSub->channel, pUpdateSub->timeStart, pUpdateSub->timeEnd
+    // );
 
     // Disable all interrupts while writing to flash
     // - Only RAM code can run while writing to flash I think?!?!
@@ -140,23 +140,23 @@ static int _processRequest(ChannelManager_Request *pRequest){
 
     //-- Check Request Packet is Good
     if(pRequest->pRequest == 0){
-        printf("-{E} Bad Request Pointer!!\n"); 
+        // printf("-{E} Bad Request Pointer!!\n"); 
         return 1;
     }
 
     if(pRequest->requestLen == 0){
-        printf("-{E} Bad Request Length!!\n"); 
+        // printf("-{E} Bad Request Length!!\n"); 
         return 1;
     }
 
     //-- Execute Request
     switch (pRequest->requestType){
         case CHANNEL_MANAGER_CHECK_ACTIVE_SUB:
-            printf("-{I} Check Active Subscription Request\n");
+            // printf("-{I} Check Active Subscription Request\n");
 
             // Check request length is good
             if(pRequest->requestLen != sizeof(ChannelManager_CheckActiveSub)){
-                printf("-{E} Bad Request Length!!\n");
+                // printf("-{E} Bad Request Length!!\n");
                 return 0;
             }
 
@@ -166,11 +166,11 @@ static int _processRequest(ChannelManager_Request *pRequest){
             break;
 
         case CHANNEL_MANAGER_GET_SUBSCRIPTION:
-            printf("-{I} Get Subscriptions Request\n");
+            // printf("-{I} Get Subscriptions Request\n");
 
             // Check request length is good
             if(pRequest->requestLen != sizeof(ChannelManager_GetSubscription)){
-                printf("-{E} Bad Request Length!!\n");
+                // printf("-{E} Bad Request Length!!\n");
                 return 0;
             }
 
@@ -180,11 +180,11 @@ static int _processRequest(ChannelManager_Request *pRequest){
             break;
 
         case CHANNEL_MANAGER_UPDATE_SUB:
-            printf("-{I} Update Subscription Request\n");
+            // printf("-{I} Update Subscription Request\n");
 
             // Check request length is good
             if(pRequest->requestLen != sizeof(ChannelManager_UpdateSubscription)){
-                printf("-{E} Bad Request Length!!\n");
+                // printf("-{E} Bad Request Length!!\n");
                 return 0;
             }
 
@@ -194,7 +194,7 @@ static int _processRequest(ChannelManager_Request *pRequest){
             break;
 
         default:
-            printf("-{E} Unknown Request Type!!\n");
+            // printf("-{E} Unknown Request Type!!\n");
             res = 1;
             break;
     }
@@ -215,7 +215,7 @@ void channelManager_Init(void){
         *  processes a subscription update, this data will be updated.
         */
         // host_print_debug("First boot.  Setting flash...\n");
-        printf("[ChannelManager] @INFO First Boot -> Setting Flash\n");
+        // printf("[ChannelManager] @INFO First Boot -> Setting Flash\n");
 
         _decoder_status.first_boot = FLASH_FIRST_BOOT;
 
@@ -235,7 +235,7 @@ void channelManager_Init(void){
     }
 
 
-    _printActiveChannels();
+    // _printActiveChannels();
 }
 
 void channelManager_vMainTask(void *pvParameters){
@@ -248,9 +248,9 @@ void channelManager_vMainTask(void *pvParameters){
 
     while (1){
         if (xQueueReceive(_xRequestQueue, &channelRequest, portMAX_DELAY) == pdPASS){
-            printf("[ChannelManager] @TASK Received Request\n");
+            // printf("[ChannelManager] @TASK Received Request\n");
             int res = _processRequest(&channelRequest);
-            printf("-COMPLETE\n");
+            // printf("-COMPLETE\n");
 
             // Signal the requesting task that request is complete
             xTaskNotify(channelRequest.xRequestingTask, res, eSetValueWithOverwrite);

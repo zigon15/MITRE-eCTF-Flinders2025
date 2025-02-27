@@ -8,6 +8,7 @@
 
 #include "crypto_manager.h"
 #include "global_secrets.h"
+#include "host_messaging.h"
 
 //----- Private Constants -----//
 #define FRAME_KDF_DATA_LENGTH 32
@@ -135,8 +136,8 @@ static int _assembleKdfData(
     // Validate KDF struct size is as expected 
     // - If not, is due to bad code and compiler screwing up the format
     if(sizeof(frame_kdf_data_t) != FRAME_KDF_DATA_LENGTH){
-        printf("-{E} Bad Frame KDF Data Struct Length!!\n");
-        printf("-FAIL\n");
+        // printf("-{E} Bad Frame KDF Data Struct Length!!\n");
+        // printf("-FAIL\n");
         return 1;
     }
 
@@ -192,7 +193,7 @@ static int _checkMic(
     int res;
     QueueHandle_t xRequestQueue = cryptoManager_RequestQueue();
 
-    printf("[FrameManager] @INFO Sending Signature Check Request\n");
+    // printf("[FrameManager] @INFO Sending Signature Check Request\n");
 
     //-- Prepare the Signature Check Packet --//
     CryptoManager_SignatureCheck cryptoSigCheck;
@@ -236,7 +237,7 @@ static int _checkMic(
     xQueueSend(xRequestQueue, &cryptoRequest, portMAX_DELAY);
     xTaskNotifyWait(0, 0xFFFFFFFF, (uint32_t*)&res, portMAX_DELAY);
 
-    printf("[FrameManager] @INFO Signature Check res = %d\n", res);
+    // printf("[FrameManager] @INFO Signature Check res = %d\n", res);
 
     return res;
 }
@@ -249,11 +250,11 @@ static int _decryptData(
     int res;
     QueueHandle_t xRequestQueue = cryptoManager_RequestQueue();
 
-    printf("[FrameManager] @INFO Sending Decryption Request\n");
+    // printf("[FrameManager] @INFO Sending Decryption Request\n");
     
     //-- Check Arguments --//
     if(plainTextLen != _calcCipherTextLen(pFramePacket->frameLen)){
-        printf("-{E} Bad Plain Text Buffer Length!!\n");
+        // printf("-{E} Bad Plain Text Buffer Length!!\n");
         return 1;
     }
 
@@ -294,7 +295,7 @@ static int _decryptData(
     cryptoDecrypt.pNonce = pCtrNonce;
 
     cryptoDecrypt.length = _calcCipherTextLen(pFramePacket->frameLen);
-    printf("-{I} Cipher Text Length = %u\n", cryptoDecrypt.length);
+    // printf("-{I} Cipher Text Length = %u\n", cryptoDecrypt.length);
     cryptoDecrypt.pCipherText = _getCipherText(pFramePacket);
 
     cryptoDecrypt.pPlainText = pPlainText;
@@ -310,7 +311,7 @@ static int _decryptData(
     xQueueSend(xRequestQueue, &cryptoRequest, portMAX_DELAY);
     xTaskNotifyWait(0, 0xFFFFFFFF, (uint32_t*)&res, portMAX_DELAY);
 
-    printf("[FrameManager] @INFO Decryption res = %d\n", res);
+    // printf("[FrameManager] @INFO Decryption res = %d\n", res);
     return res;
 }
 
@@ -319,33 +320,33 @@ static int _decodeFrame(
 ){
     int res;
 
-    printf("\n[FrameManager] @TASK Frame Decode:\n");
+    // printf("\n[FrameManager] @TASK Frame Decode:\n");
 
     const frame_packet_t *pFramePacket = (const frame_packet_t *)pFrameDecode->pBuff;
 
-    printf("[Frame] @TASK Decode Frame:\n");
-    printf("-{I} Packet Len: %u\n", pFrameDecode->pktLen);
-    printf("-{I} Channel: %lu\n", pFramePacket->channel);
-    printf("-{I} Time Stamp: %llu\n", pFramePacket->timeStamp);
-    printf("-{I} Frame Length: %u\n", pFramePacket->frameLen);
+    // printf("[Frame] @TASK Decode Frame:\n");
+    // printf("-{I} Packet Len: %u\n", pFrameDecode->pktLen);
+    // printf("-{I} Channel: %lu\n", pFramePacket->channel);
+    // printf("-{I} Time Stamp: %llu\n", pFramePacket->timeStamp);
+    // printf("-{I} Frame Length: %u\n", pFramePacket->frameLen);
 
-    printf("-{I} CTR Nonce Rand: ");
-    crypto_print_hex(pFramePacket->ctrNonceRand, CTR_NONCE_RAND_LEN);
-    printf("-{I} Cypher Text: ");
-    crypto_print_hex(_getCipherText(pFramePacket), _calcCipherTextLen(pFramePacket->frameLen));
-    printf("-{I} MIC: ");
-    crypto_print_hex(_getMIC(pFramePacket, pFrameDecode->pktLen), CRYPTO_MANAGER_MIC_LEN);
+    // printf("-{I} CTR Nonce Rand: ");
+    // crypto_print_hex(pFramePacket->ctrNonceRand, CTR_NONCE_RAND_LEN);
+    // printf("-{I} Cypher Text: ");
+    // crypto_print_hex(_getCipherText(pFramePacket), _calcCipherTextLen(pFramePacket->frameLen));
+    // printf("-{I} MIC: ");
+    // crypto_print_hex(_getMIC(pFramePacket, pFrameDecode->pktLen), CRYPTO_MANAGER_MIC_LEN);
 
     // Check length is good
     const size_t expectedPacketLen = _expectedPacketLen(pFramePacket->frameLen);
     if(expectedPacketLen != pFrameDecode->pktLen){
         // STATUS_LED_RED();
-        printf(
-            "-{E} Bad Frame Msg Length, Expected %u Bytes != Actual %u Bytes\n",
-            expectedPacketLen, pFrameDecode->pktLen
-        );
-        printf("-FAIL [Packet]\n\n");
-        // host_print_error("Frame Bad Message Length\n");
+        // printf(
+        //     "-{E} Bad Frame Msg Length, Expected %u Bytes != Actual %u Bytes\n",
+        //     expectedPacketLen, pFrameDecode->pktLen
+        // );
+        // printf("-FAIL [Packet]\n\n");
+        // host_print_error("FrameDecode -> Frame Bad Message Length\n");
         return 1;
     }
 
@@ -353,11 +354,11 @@ static int _decodeFrame(
     // - Verify that the channel fits in 2 bytes to prevent undefined behaviour later on
     if(pFramePacket->channel > 0xFFFF){
         // STATUS_LED_RED();
-        printf(
-            "-{E} Channel Number Greater than 0xFFFF!!\n"
-        );
-        printf("-FAIL [Channel Num]\n\n");
-        // host_print_error("Frame Channel Number too Big\n");
+        // printf(
+        //     "-{E} Channel Number Greater than 0xFFFF!!\n"
+        // );
+        // printf("-FAIL [Channel Num]\n\n");
+        // host_print_error("FrameDecode -> Frame Channel Number too Big\n");
         return 1;
     }
 
@@ -374,10 +375,10 @@ static int _decodeFrame(
     //     host_print_error("Frame No Subscription\n");
     //     return 1;
     // }
-    printf(
-        "-{I} Decoder has valid subscription for channel %u :)\n",
-        pFramePacket->channel
-    );
+    // printf(
+    //     "-{I} Decoder has valid subscription for channel %u :)\n",
+    //     pFramePacket->channel
+    // );
 
     // Check timestamp is in subscription start -> end
     // TODO: !!ADD!!
@@ -385,18 +386,19 @@ static int _decodeFrame(
     // Check timestamp increased
     if(_timestamp_CheckInc(pFramePacket->channel, pFramePacket->timeStamp) != 0){
         // STATUS_LED_RED();
-        printf("-{E} Frame Time Stamp Not Increased!!\n");
-        printf("-FAIL [Time Stamp]\n\n");
+        // printf("-{E} Frame Time Stamp Not Increased!!\n");
+        // printf("-FAIL [Time Stamp]\n\n");
 
-        // host_print_error("Frame Time Stamp Not Increased\n");
+        // host_print_error("FrameDecode -> Frame Time Stamp Not Increased\n");
         return 1;
     }
-    printf("-{I} Frame Time Stamp Increased :)\n");
+    // printf("-{I} Frame Time Stamp Increased :)\n");
 
     // Check MIC
     res = _checkMic(pFramePacket, pFrameDecode->pktLen);
     if(res != 0){
-        printf("-FAIL [MIC]\n\n");
+        // printf("-FAIL [MIC]\n\n");
+        // host_print_error("FrameDecode -> MIC\n");
         return res;
     }
 
@@ -407,18 +409,19 @@ static int _decodeFrame(
         pDecryptedData, sizeof(pDecryptedData)
     );
     if(res != 0){
-        printf("-FAIL [DECRYPT]\n\n");
+        // printf("-FAIL [DECRYPT]\n\n");
+        // host_print_error("FrameDecode -> Decryption\n");
         return res;
     }
 
     // Checked decrypted frame length matches the length in the packet header
     const uint8_t decryptedFrameLen = pDecryptedData[0];
     if (decryptedFrameLen != pFramePacket->frameLen){
-        printf(
-            "-{E} Decrypted Frame Length Does Not Match Packet Header Frame Length (Frame %u != Decrypted %u)!!\n",
-            pFramePacket->frameLen, decryptedFrameLen
-        );
-        printf("-FAIL\n");
+        // printf(
+        //     "-{E} Decrypted Frame Length Does Not Match Packet Header Frame Length (Frame %u != Decrypted %u)!!\n",
+        //     pFramePacket->frameLen, decryptedFrameLen
+        // );
+        // printf("-FAIL\n");
         return 1;
     }
 
@@ -426,7 +429,7 @@ static int _decodeFrame(
     // - Update time stamp tracker
     res = _timestamp_Update(pFramePacket->channel, pFramePacket->timeStamp);
     if(res != 0){
-        printf("-{E} Frame Time Stamp Update Failed %d!!\n", res);
+        // printf("-{E} Frame Time Stamp Update Failed %d!!\n", res);
         // host_print_error("Time stamp update bad\n");
         return res;
     }
@@ -440,8 +443,8 @@ static int _decodeFrame(
     // }
     // memcpy(pPlainText, pFrameData, pFramePacket->frameLen);
 
-    printf("-COMPLETE\n\n");
-    // host_write_packet(DECODE_MSG, pFrameData, pFramePacket->frame_len);
+    // printf("-COMPLETE\n\n");
+    host_write_packet(DECODE_MSG, pFrameData, pFramePacket->frameLen);
     return 0;
 }
 
@@ -450,23 +453,23 @@ static int _processRequest(FrameManager_Request *pRequest){
 
     //-- Check Request Packet is Good
     if(pRequest->pRequest == 0){
-        printf("-{E} Bad Request Pointer!!\n"); 
+        // printf("-{E} Bad Request Pointer!!\n"); 
         return 1;
     }
 
     if(pRequest->requestLen == 0){
-        printf("-{E} Bad Request Length!!\n"); 
+        // printf("-{E} Bad Request Length!!\n"); 
         return 1;
     }
 
     //-- Execute Request
     switch (pRequest->requestType){
         case FRAME_MANAGER_DECODE:
-            printf("-{I} Frame Decode Request\n");
+            // printf("-{I} Frame Decode Request\n");
 
             // Check request length is good
             if(pRequest->requestLen != sizeof(FrameManager_Decode)){
-                printf("-{E} Bad Request Length!!\n");
+                // printf("-{E} Bad Request Length!!\n");
                 return 0;
             }
 
@@ -474,7 +477,7 @@ static int _processRequest(FrameManager_Request *pRequest){
             res = _decodeFrame(pFrameDecode);
             break;
         default:
-            printf("-{E} Unknown Request Type!!\n");
+            // printf("-{E} Unknown Request Type!!\n");
             res = 1;
             break;
     }
@@ -498,9 +501,9 @@ void frameManager_vMainTask(void *pvParameters){
 
     while (1){
         if (xQueueReceive(_xRequestQueue, &frameRequest, portMAX_DELAY) == pdPASS){
-            printf("[FrameManager] @TASK Received Request\n");
+            // printf("[FrameManager] @TASK Received Request\n");
             int res = _processRequest(&frameRequest);
-            printf("-COMPLETE\n");
+            // printf("-COMPLETE\n");
 
             // Signal the requesting task that request is complete
             xTaskNotify(frameRequest.xRequestingTask, res, eSetValueWithOverwrite);
@@ -527,7 +530,7 @@ void frameManager_vMainTask(void *pvParameters){
         // _decodeFrame(framePacket, sizeof(framePacket));
 
         // vTaskDelay(pdMS_TO_TICKS(500));
-        while(1);
+        // while(1);
     }
 }
 

@@ -10,6 +10,7 @@
 #include "channel_manager.h"
 #include "global_secrets.h"
 
+#include "host_messaging.h"
 
 //----- Private Constants -----//
 #define SUBSCRIPTION_UPDATE_MSG_LEN 64
@@ -56,8 +57,8 @@ static int _assembleKdfData(
     // Validate KDF struct size is as expected 
     // - If not, is due to bad code and compiler screwing up the format
     if(sizeof(subscription_kdf_data_t) != SUBSCRIPTION_KDF_DATA_LENGTH){
-        printf("-{E} Bad Subscription KDF Data Struct Length!!\n");
-        printf("-FAIL\n");
+        // printf("-{E} Bad Subscription KDF Data Struct Length!!\n");
+        // printf("-FAIL\n");
         return 1;
     }
 
@@ -98,7 +99,6 @@ static int _assembleKdfData(
 
     // Copy required data into given kdf data object
     memcpy(pKdfData->pData, &subscriptionKdfData, SUBSCRIPTION_KDF_DATA_LENGTH);
-
     return 0;
 }
 
@@ -108,7 +108,7 @@ static int _checkMic(
     int res;
     QueueHandle_t xRequestQueue = cryptoManager_RequestQueue();
 
-    printf("[SubscriptionManager] @INFO Sending Signature Check Request\n");
+    // printf("[SubscriptionManager] @INFO Sending Signature Check Request\n");
 
     //-- Prepare the Signature Check Packet --//
     CryptoManager_SignatureCheck cryptoSigCheck;
@@ -152,7 +152,7 @@ static int _checkMic(
     xQueueSend(xRequestQueue, &cryptoRequest, portMAX_DELAY);
     xTaskNotifyWait(0, 0xFFFFFFFF, (uint32_t*)&res, portMAX_DELAY);
 
-    printf("[SubscriptionManager] @INFO Signature Check res = %d\n", res);
+    // printf("[SubscriptionManager] @INFO Signature Check res = %d\n", res);
 
     return res;
 }
@@ -163,7 +163,7 @@ static int _checkDecryptedAuthToken(
     int res;
     QueueHandle_t xRequestQueue = cryptoManager_RequestQueue();
 
-    printf("[SubscriptionManager] @INFO Sending Check Decrypted Auth Token Request\n");
+    // printf("[SubscriptionManager] @INFO Sending Check Decrypted Auth Token Request\n");
 
     //-- Prepare the Auth Token Check Packet --//
     CryptoManager_SubDecryptedAuthTokenCheck cryptoDecryptedAuthTokenCheck;
@@ -182,7 +182,7 @@ static int _checkDecryptedAuthToken(
     xQueueSend(xRequestQueue, &cryptoRequest, portMAX_DELAY);
     xTaskNotifyWait(0, 0xFFFFFFFF, (uint32_t*)&res, portMAX_DELAY);
 
-    printf("[SubscriptionManager] @INFO Signature Check res = %d\n", res);
+    // printf("[SubscriptionManager] @INFO Signature Check res = %d\n", res);
     return res;
 }
 
@@ -193,11 +193,11 @@ static int _decryptData(
     int res;
     QueueHandle_t xRequestQueue = cryptoManager_RequestQueue();
 
-    printf("[SubscriptionManager] @INFO Sending Decryption Request\n");
+    // printf("[SubscriptionManager] @INFO Sending Decryption Request\n");
 
     //-- Check Arguments --//
     if(plainTextLen != SUBSCRIPTION_CIPHER_TEXT_LEN){
-        printf("-{E} Bad Plain Text Buffer Length!!\n");
+        // printf("-{E} Bad Plain Text Buffer Length!!\n");
         return 1;
     }
 
@@ -253,7 +253,7 @@ static int _decryptData(
     xQueueSend(xRequestQueue, &cryptoRequest, portMAX_DELAY);
     xTaskNotifyWait(0, 0xFFFFFFFF, (uint32_t*)&res, portMAX_DELAY);
 
-    printf("[SubscriptionManager] @INFO Decryption res = %d\n", res);
+    // printf("[SubscriptionManager] @INFO Decryption res = %d\n", res);
     return res;
 }
 
@@ -282,7 +282,7 @@ static int _updateSubscription(
     xQueueSend(xRequestQueue, &channelRequest, portMAX_DELAY);
     xTaskNotifyWait(0, 0xFFFFFFFF, (uint32_t*)&res, portMAX_DELAY);
 
-    printf("[SubscriptionManager] @INFO Update Subscription res = %d\n", res);
+    // printf("[SubscriptionManager] @INFO Update Subscription res = %d\n", res);
 
     return 0;
 }
@@ -290,22 +290,22 @@ static int _updateSubscription(
 static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
     int res;
 
-    printf("\n[Subscription] @TASK Subscription Update:\n");
+    // printf("\n[Subscription] @TASK Subscription Update:\n");
 
     // Check length is good
     if(((pSubUpdate->pktLen % SUBSCRIPTION_UPDATE_MSG_LEN) != 0) || (sizeof(subscription_update_packet_t) != SUBSCRIPTION_UPDATE_MSG_LEN)){
         // STATUS_LED_RED();
-        printf(
-            "-{E} Bad Subscription Update Msg Length, Expected Multiple of %u Bytes != Actual %u Bytes\n",
-            SUBSCRIPTION_UPDATE_MSG_LEN, pSubUpdate->pktLen
-        );
-        printf("-FAIL [Packet]\n\n");
+        // printf(
+        //     "-{E} Bad Subscription Update Msg Length, Expected Multiple of %u Bytes != Actual %u Bytes\n",
+        //     SUBSCRIPTION_UPDATE_MSG_LEN, pSubUpdate->pktLen
+        // );
+        // printf("-FAIL [Packet]\n\n");
         // host_print_error("Subscription Update: Bad packet size\n");
         return 1;
     }
 
     size_t numPackets = pSubUpdate->pktLen / SUBSCRIPTION_UPDATE_MSG_LEN;
-    printf("-{I} %u Subscription Update Packets\n", numPackets);
+    // printf("-{I} %u Subscription Update Packets\n", numPackets);
 
     // Process all the subscription update packets
     for(size_t x = 0; x < numPackets; x++){
@@ -314,10 +314,10 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
         // Check channel is not the emergency channel
         if (pUpdate->channel == EMERGENCY_CHANNEL) {
             // STATUS_LED_RED();
-            printf(
-                "-{E} Can't Subscribe to Emergency Channel!!\n"
-            );
-            printf("-FAIL [Emergency Channel]\n\n");
+            // printf(
+            //     "-{E} Can't Subscribe to Emergency Channel!!\n"
+            // );
+            // printf("-FAIL [Emergency Channel]\n\n");
             // host_print_error("Subscription Update: Cannot subscribe to emergency channel!!\n");
             // host_print_error("Subscription Update: Can't subscribe to emergency\n");
             return 1;
@@ -327,26 +327,26 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
         // - Verify that the channel fits in 2 bytes to prevent undefined behaviour later on
         if(pUpdate->channel > 0xFFFF){
             // STATUS_LED_RED();
-            printf(
-                "-{E} Channel Number Greater than 0xFFFF!!\n"
-            );
-            printf("-FAIL [Channel Num]\n\n");
+            // printf(
+            //     "-{E} Channel Number Greater than 0xFFFF!!\n"
+            // );
+            // printf("-FAIL [Channel Num]\n\n");
             // host_print_error("Subscription Update: Channel number too big\n");
             return 1;
         }
 
-        printf("-{I} Channel: %u\n", pUpdate->channel);
-        printf("-{I} CTR Nonce Rand: ");
-        crypto_print_hex(pUpdate->ctrNonceRand, 12);
-        printf("-{I} Cypher Text: ");
-        crypto_print_hex(pUpdate->cipherText, SUBSCRIPTION_CIPHER_TEXT_LEN);
-        printf("-{I} MIC: ");
-        crypto_print_hex(pUpdate->mic, CRYPTO_MANAGER_MIC_LEN);
+        // printf("-{I} Channel: %u\n", pUpdate->channel);
+        // printf("-{I} CTR Nonce Rand: ");
+        // crypto_print_hex(pUpdate->ctrNonceRand, 12);
+        // printf("-{I} Cypher Text: ");
+        // crypto_print_hex(pUpdate->cipherText, SUBSCRIPTION_CIPHER_TEXT_LEN);
+        // printf("-{I} MIC: ");
+        // crypto_print_hex(pUpdate->mic, CRYPTO_MANAGER_MIC_LEN);
 
         // Check MIC
         res = _checkMic(pUpdate);
         if(res != 0){
-            printf("-FAIL [MIC]\n\n");
+            // printf("-FAIL [MIC]\n\n");
             return res;
         }
 
@@ -356,7 +356,7 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
         res = _decryptData(pUpdate, pPlainText, SUBSCRIPTION_CIPHER_TEXT_LEN);
         if(res != 0){
             // STATUS_LED_RED();
-            printf("-FAIL [Decrypt]\n\n");
+            // printf("-FAIL [Decrypt]\n\n");
             // host_print_error("Subscription Update: Decryption Failed\n");
             return res;
         }
@@ -366,7 +366,7 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
         res = _checkDecryptedAuthToken(pDecryptedAuthTag, SUBSCRIPTION_CIPHER_AUTH_TAG_LEN);
         if(res != 0){
             // STATUS_LED_RED();
-            printf("-FAIL [Cipher Auth Tag]\n\n");
+            // printf("-FAIL [Cipher Auth Tag]\n\n");
             // host_print_error("Subscription Update: Cipher Auth Tag Failed\n");
             return res;
 
@@ -377,19 +377,22 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
         uint64_t timeStampStart = *((uint64_t*)pPlainText);
         uint64_t timeStampEnd = *((uint64_t*)(pPlainText + sizeof(uint64_t) + SUBSCRIPTION_CIPHER_AUTH_TAG_LEN));
 
-        printf("-{I} Time Stamp Start: %llu\n", timeStampStart);
-        printf("-{I} Time Stamp End: %llu\n", timeStampEnd);
+        // printf("-{I} Time Stamp Start: %llu\n", timeStampStart);
+        // printf("-{I} Time Stamp End: %llu\n", timeStampEnd);
 
         res = _updateSubscription(pUpdate->channel, timeStampStart, timeStampEnd);
         if(res != 0){
             // STATUS_LED_RED();
-            printf("-FAIL [Subscription Update]\n\n");
+            // printf("-FAIL [Subscription Update]\n\n");
             // host_print_error("Subscription Update: Channel Update Failed\n");
             return res;
         }
     }
+    
+    // Success message with an empty body
+    host_write_packet(SUBSCRIBE_MSG, NULL, 0);
 
-    printf("-COMPLETE\n");
+    // printf("-COMPLETE\n");
     return 0;
 }
 
@@ -398,23 +401,23 @@ static int _processRequest(SubscriptionManager_Request *pRequest){
 
     //-- Check Request Packet is Good
     if(pRequest->pRequest == 0){
-        printf("-{E} Bad Request Pointer!!\n"); 
+        // printf("-{E} Bad Request Pointer!!\n"); 
         return 1;
     }
 
     if(pRequest->requestLen == 0){
-        printf("-{E} Bad Request Length!!\n"); 
+        // printf("-{E} Bad Request Length!!\n"); 
         return 1;
     }
 
     //-- Execute Request
     switch (pRequest->requestType){
         case SUBSCRIPTION_MANAGER_SUB_UPDATE:
-            printf("-{I} Subscription Update Request\n");
+            // printf("-{I} Subscription Update Request\n");
 
             // Check request length is good
             if(pRequest->requestLen != sizeof(SubscriptionManager_SubscriptionUpdate)){
-                printf("-{E} Bad Request Length!!\n");
+                // printf("-{E} Bad Request Length!!\n");
                 return 0;
             }
 
@@ -422,7 +425,7 @@ static int _processRequest(SubscriptionManager_Request *pRequest){
             res = _addSubscription(pSubUpdate);
             break;
         default:
-            printf("-{E} Unknown Request Type!!\n");
+            // printf("-{E} Unknown Request Type!!\n");
             res = 1;
             break;
     }
@@ -443,9 +446,9 @@ void subscriptionManager_vMainTask(void *pvParameters){
 
     while (1){
         if (xQueueReceive(_xRequestQueue, &subscriptionRequest, portMAX_DELAY) == pdPASS){
-            printf("[SubscriptionManager] @TASK Received Request\n");
+            // printf("[SubscriptionManager] @TASK Received Request\n");
             int res = _processRequest(&subscriptionRequest);
-            printf("-COMPLETE\n");
+            // printf("-COMPLETE\n");
 
             // Signal the requesting task that request is complete
             xTaskNotify(subscriptionRequest.xRequestingTask, res, eSetValueWithOverwrite);
