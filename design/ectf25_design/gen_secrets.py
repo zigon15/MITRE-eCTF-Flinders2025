@@ -54,12 +54,12 @@ def gen_secrets(channels: list[int]) -> bytes:
         if channel < MIN_CHANNEL or channel > MAX_CHANNEL:
             print(f"Channel IDs must be in the range [{MIN_CHANNEL}, {MAX_CHANNEL}] -> ${channels}!!")
             print(f"-> Bad Channel: {channel}")
-            exit()
+            raise Exception(f"Channel IDs must be in the range [{MIN_CHANNEL}, {MAX_CHANNEL}], Bad Channel: {channel}!!")
 
     # Validate that the number of channels fit in required range
     if len(channels) > MAX_NUM_CHANNELS:
         print(f"The number of channels must not exceed {MAX_NUM_CHANNELS}!!")
-        exit()
+        raise Exception(f"The number of channels must not exceed {MAX_NUM_CHANNELS}!!")
 
     # Create the secrets object
     # You can change this to generate any secret material

@@ -74,12 +74,12 @@ class Encoder:
         
         if len(frame_kdf_key) != AES_KEY_LEN_BYTE:
             logger.error(f"Bad subscription kdf key length, Expected {AES_KEY_LEN_BYTE} bytes!!")
-            exit()
+            raise Exception(f"Bad subscription kdf key length, Expected {AES_KEY_LEN_BYTE} bytes!!")
 
         # Validate that the number of channels fit in required range
         if channel > 0xFFFF:
             logger.error(f"Channel num greater than the max of 0xFFFF!!")
-            exit()
+            raise Exception(f"Channel num greater than the max of 0xFFFF!!")
 
         # CTR Nonce must have some randomness to ensure derived keys are never the same
         ctr_nonce_rand = os.urandom(FRAME_NONCE_RAND_LEN)
@@ -104,8 +104,8 @@ class Encoder:
                       channel.to_bytes(2, byteorder='little')
 
         if len(input_bytes) != 2*AES_BLOCK_SIZE_BYTE:
-            logger.error("Expected AES CTR Input for Frame Encode MIC KDF to be one block length!!")
-            exit()
+            logger.error("Expected AES CTR Input for Frame Encode MIC KDF to be twe block lengths!!")
+            raise Exception("Expected AES CTR Input for Frame Encode MIC KDF to be twe block lengths!!")
 
         # Perform AES encryption
         encryptor = cipher.encryptor()
@@ -128,8 +128,8 @@ class Encoder:
                       channel.to_bytes(2, byteorder='little')
         
         if len(input_bytes) != 2*AES_BLOCK_SIZE_BYTE:
-            logger.error("Expected AES CTR Input for Frame Encode Encryption KDF to be one block length!!")
-            exit()
+            logger.error("Expected AES CTR Input for Frame Encode Encryption KDF to be two block length!!")
+            raise Exception("Expected AES CTR Input for Frame Encode Encryption KDF to be twe block lengths!!")
 
         # Increment nonce as to not use the same nonce twice
         number = int.from_bytes(ctr_nonce_rand, byteorder='big')
@@ -209,17 +209,17 @@ class Encoder:
         frame_len = len(frame)
         if frame_len > FRAME_PLAIN_TEXT_MAX_LEN:
             logger.error(f"Frame data with length {frame_len} bytes greater than maximum of {FRAME_PLAIN_TEXT_MAX_LEN} bytes!!")
-            exit()
+            raise Exception(f"Frame data with length {frame_len} bytes greater than maximum of {FRAME_PLAIN_TEXT_MAX_LEN} bytes!!")
 
         if frame_len == 0:
             logger.error(f"Zero length frame data not allowed!!")
-            exit()
+            raise Exception(f"Zero length frame data not allowed!!")
 
         # Load channel key
         channel_key = self.globalSecrets.channel_key(channel)
         if channel_key == None:
             logger.error(f"Channel {channel} not found in deployment secrets!!")
-            exit()
+            raise Exception(f"Channel {channel} not found in deployment secrets!!")
 
         # Derive frame encode MIC and encrypt keys from various parameters
         mic_key, encryption_key, ctr_nonce_rand = self.derive_keys(
