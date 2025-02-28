@@ -27,8 +27,10 @@
 #include "tmr.h"
 #include "nvic_table.h"
 
-// Only include the contents of this file if DEBUG == 1
-#if defined(DEBUG) && (DEBUG == 1)
+// Only include the contents of this file if FRTOS_DEBUG == 1
+#if defined(FRTOS_DEBUG) && (FRTOS_DEBUG == 1)
+
+#warning "FreeRTOS Debug Build!!"
 
 // Scheduler tick is 1ms
 // RTOS Stats Clock should be 10-100x faster

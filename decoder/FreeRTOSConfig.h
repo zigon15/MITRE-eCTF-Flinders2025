@@ -26,7 +26,10 @@
  #include "max78000.h"
  
   // MSDK Debug flags
-  #if defined(DEBUG) && DEBUG == 1
+  #if defined(FRTOS_DEBUG) && FRTOS_DEBUG == 1
+  
+  #warning "FreeRTOS Debug Build!!"
+
   // RTOS Stats Timer Functions
   extern void ConfigTimerForStats(void);
   extern uint32_t GetTimerForStats(void);

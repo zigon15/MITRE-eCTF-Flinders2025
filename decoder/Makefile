@@ -211,7 +211,6 @@ ifeq "$(MAKECMDGOALS)" "release"
 # Default optimization level for "release" builds (make release)
 MXC_OPTIMIZE_CFLAGS ?= -O2
 DEBUG = 0
-PROJ_CFLAGS+=-DDEBUG=0
 endif
 
 ifeq ($(DEBUG),1)
@@ -228,7 +227,7 @@ MXC_OPTIMIZE_CFLAGS ?= -O2
 PROJ_CFLAGS += -Wall # Enable warnings
 PROJ_CFLAGS+=-DDECODER_ID=$(DECODER_ID)
 PROJ_CFLAGS += -DMXC_ASSERT_ENABLE
-PROJ_CFLAGS+=-DDEBUG=$(DEBUG)
+PROJ_CFLAGS+=-DFRTOS_DEBUG=$(DEBUG)
 
 # Set hardware floating point acceleration.
 # Options are:
