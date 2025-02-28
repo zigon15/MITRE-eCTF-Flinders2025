@@ -16,7 +16,7 @@
 #define SUBSCRIPTION_UPDATE_MSG_LEN 64
 
 #define SUBSCRIPTION_KDF_DATA_LENGTH 32
-#define SUBSCRIPTION_KDF_CHANNEL_KEY_LEN 25
+#define SUBSCRIPTION_KDF_CHANNEL_KEY_LEN 23
 
 #define SUBSCRIPTION_CIPHER_TEXT_LEN 32
 
@@ -32,15 +32,15 @@ typedef struct __attribute__((packed)) {
     uint8_t type;
     uint8_t channelKey[SUBSCRIPTION_KDF_CHANNEL_KEY_LEN];
     uint32_t deviceId;
-    uint16_t channel;
-  } subscription_kdf_data_t;
+    channel_id_t channel;
+} subscription_kdf_data_t;
   
-  typedef struct __attribute__((packed)) {
+typedef struct __attribute__((packed)) {
     channel_id_t channel;
     uint8_t ctrNonceRand[CTR_NONCE_RAND_LEN];
     uint8_t cipherText[SUBSCRIPTION_CIPHER_TEXT_LEN];
     uint8_t mic[CRYPTO_MANAGER_MIC_LEN];
-  } subscription_update_packet_t;
+} subscription_update_packet_t;
 
 //----- Private Variables -----//
 // Task request queue

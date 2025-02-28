@@ -24,7 +24,7 @@
 
 /******************************** PRIVATE TYPES ********************************/
 typedef struct __attribute__((packed)) {
-    uint16_t channel;
+    channel_id_t channel;
     uint8_t pKey[CHANNEL_KDF_KEY_LEN];
 } channel_key_pair_t;
 
@@ -67,7 +67,7 @@ static int _find_channel_info(
 
     // Loop through all the channel key pairs to see if the channel exists
     for(size_t i = 0; i < _numChannels; i++){
-        uint16_t foundChannel = *(uint16_t*)(secrets_bin_start + CHANNEL_INFO_OFFSET + i*CHANNEL_LEN);
+        channel_id_t foundChannel = *(channel_id_t*)(secrets_bin_start + CHANNEL_INFO_OFFSET + i*CHANNEL_LEN);
         if(channel == foundChannel){
             *ppKey = secrets_bin_start + CHANNEL_INFO_OFFSET + _numChannels*CHANNEL_LEN + i*CHANNEL_KDF_KEY_LEN;
             return 0;
@@ -264,7 +264,7 @@ int secrets_get_channel_kdf_key(const channel_id_t channel, const uint8_t **ppKe
 */
 int secrets_get_channel_info(
     const size_t idx, 
-    uint16_t const **ppChannel, const uint8_t **ppKey
+    channel_id_t const **ppChannel, const uint8_t **ppKey
 ){
     // Ensure secrets are valid
     if(_globalSecretsValid == 0){
@@ -276,7 +276,7 @@ int secrets_get_channel_info(
         return 1;
     }
 
-    *ppChannel = (uint16_t*)(secrets_bin_start + CHANNEL_INFO_OFFSET + idx*CHANNEL_LEN);
+    *ppChannel = (channel_id_t*)(secrets_bin_start + CHANNEL_INFO_OFFSET + idx*CHANNEL_LEN);
     *ppKey = secrets_bin_start + CHANNEL_INFO_OFFSET + _numChannels*CHANNEL_LEN + idx*CHANNEL_KDF_KEY_LEN;
     return 0;
 }

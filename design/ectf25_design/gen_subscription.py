@@ -20,7 +20,7 @@ from cryptography.hazmat.backends import default_backend
 
 from loguru import logger
 
-from global_secrets import *
+from .global_secrets import *
 
 # Length of each AES key in bits and bytes notation
 AES_KEY_LEN_BIT = 256

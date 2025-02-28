@@ -1,5 +1,5 @@
 # Generate global secrets
-python3 ../ectf25_design/gen_secrets.py ../../global.secrets 4294967295 --force
+# python3 ../ectf25_design/gen_secrets.py ../../global.secrets 4294967295 --force
 
 # Generate subscription
 python3 ../ectf25_design/gen_subscription.py ../../global.secrets ./output/subscription.bin 0xDEADBEEF 32 128 4294967295 --force

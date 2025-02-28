@@ -25,7 +25,7 @@
 #define SUBSCRIPTION_CIPHER_AUTH_TAG_LEN 16
 #define FRAME_KDF_KEY_LEN 32
 #define CHANNEL_NUM_LEN 2
-#define CHANNEL_LEN 2
+#define CHANNEL_LEN 4
 #define CHANNEL_KDF_KEY_LEN 32
 
 /******************************** PUBLIC FUNCTION PROTOTYPES ********************************/
@@ -89,7 +89,7 @@ int secrets_get_channel_kdf_key(const channel_id_t channel, const uint8_t **ppKe
 */
 int secrets_get_channel_info(
     const size_t idx, 
-    const uint16_t **ppChannel, const uint8_t **ppKey
+    channel_id_t const **ppChannel, const uint8_t **ppKey
 );
 
 #endif
