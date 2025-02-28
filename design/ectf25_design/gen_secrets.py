@@ -23,9 +23,9 @@ from loguru import logger
 AES_KEY_LEN_BIT = 256
 AES_KEY_LEN_BYTE = AES_KEY_LEN_BIT//8
 
-# Allowed channel number range (16b unsigned)
+# Allowed channel number range (32b unsigned)
 MIN_CHANNEL = 0
-MAX_CHANNEL = 0xFFFF
+MAX_CHANNEL = 0xFFFFFFFF
 
 # Maximum number of channels allowed in a single deployment (16b unsigned)
 MAX_NUM_CHANNELS = 0xFFFF
@@ -40,7 +40,7 @@ def gen_secrets(channels: list[int]) -> bytes:
 
     :param channels: List of channel numbers that will be valid in this deployment.
         Channel 0 is the emergency broadcast, which will always be valid and will
-        NOT be included in this list. Each channel is a 16b number.
+        NOT be included in this list. Each channel is a 32b number.
 
     :returns: Contents of the secrets file
     """
@@ -107,15 +107,15 @@ def gen_secrets(channels: list[int]) -> bytes:
     # [32]: Subscription cypher authentication key (16 Bytes)
     # [48]: Frame KDF key (32 Bytes)
     # [80]: Number of channels (2 Bytes)
-    # [82]: Channels (2 Bytes each)
-    # [82 + 2*NumChannels]: Keys for each channel (32 Bytes each)
+    # [82]: Channel IDs (4 Bytes each)
+    # [82 + 4*NumChannels]: Keys for each channel (32 Bytes each)
     secrets = struct.pack(
-        f"<32s16s32sH{len(channels)}H{len(channels) * 32}s",
+        f"<32s16s32sH{len(channels)}I{len(channels) * 32}s",
         subscription_kdf_key,           # Subscription KDF key (32 Bytes)
         subscription_cypher_auth_tag,   # Subscription Cypher Auth Tag (16 Bytes)
         frame_kdf_key,                  # Frame KDF key (32 Bytes)
         len(channels),                  # Number of channels (2 Bytes)
-        *channels,                      # Channels (2 Bytes each)
+        *channels,                      # Channels (4 Bytes each)
         b"".join(channel_keys)          # Concatenate all channel keys (32 Bytes each)
     )
 

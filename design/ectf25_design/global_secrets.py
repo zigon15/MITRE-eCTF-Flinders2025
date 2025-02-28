@@ -18,13 +18,13 @@ SUBSCRIPTION_KDF_KEY_LEN = 32
 SUBSCRIPTION_CIPHER_AUTH_TAG_LEN = 16
 FRAME_KDF_KEY_LEN = 32
 CHANNEL_NUM_LEN = 2
-CHANNEL_LEN = 2
+CHANNEL_LEN = 4
 CHANNEL_KEY_LEN = 32
 
 class GlobalSecrets:
     def __init__(self, raw_secrets: bytes):
         self.secrets = self.parse_secrets(raw_secrets)
-        logger.info(f"@INFO Global Secrets -> {self.secrets}")
+        # logger.info(f"@INFO Global Secrets -> {self.secrets}")
 
     def parse_secrets(
         self, raw_secrets: bytes,   
@@ -37,7 +37,7 @@ class GlobalSecrets:
         """
         offset = 0
 
-        logger.info(f"@INFO Parsing Global Secrets -> Raw Secrets: {raw_secrets}, Length: {len(raw_secrets)}")
+        # logger.info(f"@INFO Parsing Global Secrets -> Raw Secrets: {raw_secrets}, Length: {len(raw_secrets)}")
 
         # [0:31] bytes are subscription KDF key
         subscription_kdf_key = raw_secrets[offset:offset+SUBSCRIPTION_KDF_KEY_LEN] 
@@ -51,12 +51,12 @@ class GlobalSecrets:
         frame_kdf_key = raw_secrets[offset:offset+FRAME_KDF_KEY_LEN]
         offset += FRAME_KDF_KEY_LEN
 
-        # [80:81] bytes are number of channels (16b) followed by channel IDs (16b each)
+        # [80:81] bytes are number of channels (16b) followed by channel IDs (32b each)
         num_channels = struct.unpack('<H', raw_secrets[offset:offset+CHANNEL_NUM_LEN])[0]
         offset += CHANNEL_NUM_LEN
 
         channels = [
-            struct.unpack('<H', raw_secrets[offset + i*CHANNEL_LEN: offset + (i+1)*CHANNEL_LEN])[0]
+            struct.unpack('<I', raw_secrets[offset + i*CHANNEL_LEN: offset + (i+1)*CHANNEL_LEN])[0]
             for i in range(num_channels)
         ]
         offset += num_channels*CHANNEL_LEN

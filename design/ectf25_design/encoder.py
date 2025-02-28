@@ -77,9 +77,9 @@ class Encoder:
             raise Exception(f"Bad subscription kdf key length, Expected {AES_KEY_LEN_BYTE} bytes!!")
 
         # Validate that the number of channels fit in required range
-        if channel > 0xFFFF:
-            logger.error(f"Channel num greater than the max of 0xFFFF!!")
-            raise Exception(f"Channel num greater than the max of 0xFFFF!!")
+        if channel > 0xFFFFFFFF:
+            logger.error(f"Channel num greater than the max of 0xFFFFFFFF!!")
+            raise Exception(f"Channel num greater than the max of 0xFFFFFFFF!!")
 
         # CTR Nonce must have some randomness to ensure derived keys are never the same
         ctr_nonce_rand = os.urandom(FRAME_NONCE_RAND_LEN)
@@ -96,12 +96,12 @@ class Encoder:
         # Input data to derive MIC key from
         # [0]: FRAME_MIC_KEY_TYPE (1 byte)
         # [1]: Frame Data Length (1 byte)
-        # [2]: Channel Key (Last 20 bytes)
-        # [22]: Time Stamp (8 bytes)
-        # [30]: Channel (2 bytes)
-        # 1 + 21 + 8 + 2 = 32 bytes long
-        input_bytes = FRAME_MIC_KEY_TYPE.to_bytes(1) + frame_data_len.to_bytes(1) + channel_key[-20:] + timestamp.to_bytes(8, byteorder='little') +\
-                      channel.to_bytes(2, byteorder='little')
+        # [2]: Channel Key (Last 18 bytes)
+        # [20]: Time Stamp (8 bytes)
+        # [28]: Channel (2 bytes)
+        # 1 + 1 + 18 + 8 + 2 = 32 bytes long
+        input_bytes = FRAME_MIC_KEY_TYPE.to_bytes(1) + frame_data_len.to_bytes(1) + channel_key[-18:] + timestamp.to_bytes(8, byteorder='little') +\
+                      channel.to_bytes(4, byteorder='little')
 
         if len(input_bytes) != 2*AES_BLOCK_SIZE_BYTE:
             logger.error("Expected AES CTR Input for Frame Encode MIC KDF to be twe block lengths!!")
@@ -120,12 +120,12 @@ class Encoder:
         # Input data to derive encryption key from
         # [0]: FRAME_ENCRYPTION_KEY_TYPE (1 byte)
         # [1]: Frame Data Length (1 byte)
-        # [2]: Channel Key (Last 20 bytes)
-        # [22]: Time Stamp (8 bytes)
-        # [30]: Channel (2 bytes)
-        # 1 + 21 + 8 + 2 = 32 bytes long
-        input_bytes = FRAME_ENCRYPTION_KEY_TYPE.to_bytes(1) + frame_data_len.to_bytes(1) + channel_key[-20:] + timestamp.to_bytes(8, byteorder='little') +\
-                      channel.to_bytes(2, byteorder='little')
+        # [2]: Channel Key (Last 18 bytes)
+        # [20]: Time Stamp (8 bytes)
+        # [28]: Channel (4 bytes)
+        # 1 + 18 + 8 + 4 = 32 bytes long
+        input_bytes = FRAME_ENCRYPTION_KEY_TYPE.to_bytes(1) + frame_data_len.to_bytes(1) + channel_key[-18:] + timestamp.to_bytes(8, byteorder='little') +\
+                      channel.to_bytes(4, byteorder='little')
         
         if len(input_bytes) != 2*AES_BLOCK_SIZE_BYTE:
             logger.error("Expected AES CTR Input for Frame Encode Encryption KDF to be two block length!!")

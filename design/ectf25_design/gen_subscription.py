@@ -20,7 +20,7 @@ from cryptography.hazmat.backends import default_backend
 
 from loguru import logger
 
-from .global_secrets import *
+from global_secrets import *
 
 # Length of each AES key in bits and bytes notation
 AES_KEY_LEN_BIT = 256
@@ -60,9 +60,9 @@ def subscription_derive_keys(
         raise Exception(f"Bad subscription kdf key length, Expected {AES_KEY_LEN_BYTE} bytes!!")
 
     # Validate that the number of channels fit in required range
-    if channel > 0xFFFF:
-        logger.error(f"Channel num greater than the max of 0xFFFF!!")
-        raise Exception(f"Channel num greater than the max of 0xFFFF!!")
+    if channel > 0xFFFFFFFF:
+        logger.error(f"Channel num greater than the max of 0xFFFFFFFF!!")
+        raise Exception(f"Channel num greater than the max of 0xFFFFFFFF!!")
 
     # CTR Nonce must have some randomness to ensure derived keys are never the same
     ctr_nonce_rand = os.urandom(SUBSCRIPTION_UPDATE_NONCE_RAND_LEN)
@@ -80,12 +80,12 @@ def subscription_derive_keys(
 
     # Input data to derive MIC key from
     # [0]: SUBSCRIPTION_MIC_KEY_TYPE (1 byte)
-    # [1]: Channel Key (First 25 bytes)
-    # [26]: Device ID (4 bytes)
-    # [30]: Channel (2 bytes)
-    # 1 + 25 + 4 + 2 = 32 bytes long
-    input_bytes = SUBSCRIPTION_MIC_KEY_TYPE.to_bytes(1) + channel_key[0:25] + device_id.to_bytes(4, byteorder='little') +\
-                  channel.to_bytes(2, byteorder='little')
+    # [1]: Channel Key (First 23 bytes)
+    # [24]: Device ID (4 bytes)
+    # [28]: Channel ID (4 bytes)
+    # 1 + 23 + 4 + 4 = 32 bytes long
+    input_bytes = SUBSCRIPTION_MIC_KEY_TYPE.to_bytes(1) + channel_key[0:23] + device_id.to_bytes(4, byteorder='little') +\
+                  channel.to_bytes(4, byteorder='little')
 
     if len(input_bytes) != 2*AES_BLOCK_SIZE_BYTE:
         logger.error("Expected AES CTR Input for Subscription Update MIC KDF to be one block length!!")
@@ -102,12 +102,12 @@ def subscription_derive_keys(
     
     # Input data to derive encryption key from
     # [0]: SUBSCRIPTION_ENCRYPTION_KEY_TYPE (1 byte)
-    # [1]: Channel Key (First 25 bytes)
-    # [26]: Device ID (4 bytes)
-    # [30]: Channel (2 bytes)
-    # 1 + 25 + 4 + 2 = 32 bytes long
-    input_bytes = SUBSCRIPTION_ENCRYPTION_KEY_TYPE.to_bytes(1) + channel_key[0:25] + device_id.to_bytes(4, byteorder='little') +\
-                  channel.to_bytes(2, byteorder='little')
+    # [1]: Channel Key (First 23 bytes)
+    # [24]: Device ID (4 bytes)
+    # [28]: Channel (4 bytes)
+    # 1 + 23 + 4 + 4 = 32 bytes long
+    input_bytes = SUBSCRIPTION_ENCRYPTION_KEY_TYPE.to_bytes(1) + channel_key[0:23] + device_id.to_bytes(4, byteorder='little') +\
+                  channel.to_bytes(4, byteorder='little')
     
     if len(input_bytes) != 2*AES_BLOCK_SIZE_BYTE:
         logger.error("Expected AES CTR Input for Subscription Update Encryption KDF to be two block length!!")
