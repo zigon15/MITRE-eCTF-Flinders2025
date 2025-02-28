@@ -39,7 +39,7 @@ VPATH+=core/tasks/channel_manager
 VPATH+=core/tasks/frame_manager
 
 # ****************** FREE RTOS Flags *******************
-LIB_FREERTOS = 1
+LIB_FREERTOS=1
 
 # Can provide a value for the FREERTOS heap allocation scheme
 # Default value is 4
