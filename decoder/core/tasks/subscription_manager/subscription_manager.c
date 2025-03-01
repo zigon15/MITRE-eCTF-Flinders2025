@@ -11,7 +11,6 @@
 #include "global_secrets.h"
 
 #include "host_messaging.h"
-#include "status_led.h"
 
 //----- Private Constants -----//
 #define SUBSCRIPTION_UPDATE_MSG_LEN 64
@@ -300,8 +299,8 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
         //     SUBSCRIPTION_UPDATE_MSG_LEN, pSubUpdate->pktLen
         // );
         // printf("-FAIL [Packet]\n\n");
-        STATUS_LED_RED();
-        host_print_error("Subscription Update: Bad packet size\n");
+        // STATUS_LED_RED();
+        // host_print_error("Subscription Update: Bad packet size\n");
         return 1;
     }
 
@@ -318,9 +317,8 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
             //     "-{E} Can't Subscribe to Emergency Channel!!\n"
             // );
             // printf("-FAIL [Emergency Channel]\n\n");
-
-            STATUS_LED_RED();
-            host_print_error("Subscription Update: Cannot subscribe to emergency channel!!\n");
+            // STATUS_LED_RED();
+            // host_print_error("Subscription Update: Cannot subscribe to emergency channel!!\n");
             return 1;
         }
 
@@ -336,8 +334,8 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
         res = _checkMic(pUpdate);
         if(res != 0){
             // printf("-FAIL [MIC]\n\n");
-            STATUS_LED_RED();
-            host_print_error("Subscription Update: Bad MIC\n");
+            // STATUS_LED_RED();
+            // host_print_error("Subscription Update: Bad MIC\n");
             return res;
         }
 
@@ -347,8 +345,8 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
         res = _decryptData(pUpdate, pPlainText, SUBSCRIPTION_CIPHER_TEXT_LEN);
         if(res != 0){
             // printf("-FAIL [Decrypt]\n\n");
-            STATUS_LED_RED();
-            host_print_error("Subscription Update: Decryption Failed\n");
+            // STATUS_LED_RED();
+            // host_print_error("Subscription Update: Decryption Failed\n");
             return res;
         }
 
@@ -357,8 +355,8 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
         res = _checkDecryptedAuthToken(pDecryptedAuthTag, SUBSCRIPTION_CIPHER_AUTH_TAG_LEN);
         if(res != 0){
             // printf("-FAIL [Cipher Auth Tag]\n\n");
-            STATUS_LED_RED();
-            host_print_error("Subscription Update: Cipher Auth Tag Check Failed\n");
+            // STATUS_LED_RED();
+            // host_print_error("Subscription Update: Cipher Auth Tag Check Failed\n");
             return res;
 
         }
@@ -375,8 +373,8 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
         if(res != 0){
             // printf("-FAIL [Subscription Update]\n\n");
             // host_print_error("Subscription Update: Channel Update Failed\n");
-            STATUS_LED_RED();
-            host_print_error("Subscription Update: Channel Update Failed\n");
+            // STATUS_LED_RED();
+            // host_print_error("Subscription Update: Channel Update Failed\n");
             return res;
         }
     }
