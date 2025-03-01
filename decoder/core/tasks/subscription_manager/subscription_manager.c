@@ -11,6 +11,7 @@
 #include "global_secrets.h"
 
 #include "host_messaging.h"
+#include "status_led.h"
 
 //----- Private Constants -----//
 #define SUBSCRIPTION_UPDATE_MSG_LEN 64
@@ -294,13 +295,13 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
 
     // Check length is good
     if(((pSubUpdate->pktLen % SUBSCRIPTION_UPDATE_MSG_LEN) != 0) || (sizeof(subscription_update_packet_t) != SUBSCRIPTION_UPDATE_MSG_LEN)){
-        // STATUS_LED_RED();
         // printf(
         //     "-{E} Bad Subscription Update Msg Length, Expected Multiple of %u Bytes != Actual %u Bytes\n",
         //     SUBSCRIPTION_UPDATE_MSG_LEN, pSubUpdate->pktLen
         // );
         // printf("-FAIL [Packet]\n\n");
-        // host_print_error("Subscription Update: Bad packet size\n");
+        STATUS_LED_RED();
+        host_print_error("Subscription Update: Bad packet size\n");
         return 1;
     }
 
@@ -313,25 +314,13 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
 
         // Check channel is not the emergency channel
         if (pUpdate->channel == EMERGENCY_CHANNEL) {
-            // STATUS_LED_RED();
             // printf(
             //     "-{E} Can't Subscribe to Emergency Channel!!\n"
             // );
             // printf("-FAIL [Emergency Channel]\n\n");
-            // host_print_error("Subscription Update: Cannot subscribe to emergency channel!!\n");
-            // host_print_error("Subscription Update: Can't subscribe to emergency\n");
-            return 1;
-        }
 
-        // Channel is 4 bytes in the subscription update structure but max expected is 2 byte in python
-        // - Verify that the channel fits in 2 bytes to prevent undefined behaviour later on
-        if(pUpdate->channel > 0xFFFF){
-            // STATUS_LED_RED();
-            // printf(
-            //     "-{E} Channel Number Greater than 0xFFFF!!\n"
-            // );
-            // printf("-FAIL [Channel Num]\n\n");
-            // host_print_error("Subscription Update: Channel number too big\n");
+            STATUS_LED_RED();
+            host_print_error("Subscription Update: Cannot subscribe to emergency channel!!\n");
             return 1;
         }
 
@@ -347,6 +336,8 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
         res = _checkMic(pUpdate);
         if(res != 0){
             // printf("-FAIL [MIC]\n\n");
+            STATUS_LED_RED();
+            host_print_error("Subscription Update: Bad MIC\n");
             return res;
         }
 
@@ -355,9 +346,9 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
         CRYPTO_CREATE_CLEANUP_BUFFER(pPlainText, SUBSCRIPTION_CIPHER_TEXT_LEN);
         res = _decryptData(pUpdate, pPlainText, SUBSCRIPTION_CIPHER_TEXT_LEN);
         if(res != 0){
-            // STATUS_LED_RED();
             // printf("-FAIL [Decrypt]\n\n");
-            // host_print_error("Subscription Update: Decryption Failed\n");
+            STATUS_LED_RED();
+            host_print_error("Subscription Update: Decryption Failed\n");
             return res;
         }
 
@@ -365,9 +356,9 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
         const uint8_t *pDecryptedAuthTag = (pPlainText + sizeof(uint64_t));
         res = _checkDecryptedAuthToken(pDecryptedAuthTag, SUBSCRIPTION_CIPHER_AUTH_TAG_LEN);
         if(res != 0){
-            // STATUS_LED_RED();
             // printf("-FAIL [Cipher Auth Tag]\n\n");
-            // host_print_error("Subscription Update: Cipher Auth Tag Failed\n");
+            STATUS_LED_RED();
+            host_print_error("Subscription Update: Cipher Auth Tag Check Failed\n");
             return res;
 
         }
@@ -382,9 +373,10 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
 
         res = _updateSubscription(pUpdate->channel, timeStampStart, timeStampEnd);
         if(res != 0){
-            // STATUS_LED_RED();
             // printf("-FAIL [Subscription Update]\n\n");
             // host_print_error("Subscription Update: Channel Update Failed\n");
+            STATUS_LED_RED();
+            host_print_error("Subscription Update: Channel Update Failed\n");
             return res;
         }
     }

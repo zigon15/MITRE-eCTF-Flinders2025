@@ -145,18 +145,6 @@ void serialInterfaceManager_vMainTask(void *pvParameters){
 
     int res;
 
-    // uint8_t tmp[] = {
-    //     0x01, 0x00, 0x00, 0x00, 0xBF, 0x5B, 0x9C, 0x11, 
-    //     0x97, 0x69, 0xC5, 0xD4, 0xA0, 0xD7, 0xB2, 0xE9, 
-    //     0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-    //     0x0F, 0xEC, 0x9E, 0xA6, 0x9F, 0xB2, 0xF7, 0x87, 
-    //     0x9A, 0x58, 0x7A, 0x56, 0x70, 0xC7, 0x24, 0x3B, 
-    //     0x43, 0xF1, 0x09, 0x75, 0xED, 0x92, 0x9C, 0x4A, 
-    //     0xB7, 0x50, 0x0F, 0x66, 0x8A, 0xC2, 0x04, 0x7E, 
-    //     0xBA,
-    // };
-    // _decodeFrame(tmp, sizeof(tmp));
-
     while (1){
         // host_print_debug("Ready\n");
         STATUS_LED_GREEN();
@@ -176,7 +164,7 @@ void serialInterfaceManager_vMainTask(void *pvParameters){
                 res = _listChannels();
                 if(res != 0){
                     STATUS_LED_RED();
-                    host_print_error("Decode Failed\n");
+                    host_print_error("List Channels Failed\n");
                 }
                 break;
 
@@ -194,10 +182,10 @@ void serialInterfaceManager_vMainTask(void *pvParameters){
             case SUBSCRIBE_MSG:
                 STATUS_LED_YELLOW();
                 res = _subscriptionUpdate(uart_RxBuff, pkt_len);
-                if(res != 0){
-                    STATUS_LED_RED();
-                    host_print_error("Subscription Update Failed\n");
-                }
+                // if(res != 0){
+                //     STATUS_LED_RED();
+                //     host_print_error("Subscription Update Failed\n");
+                // }
                 break;
 
             // Handle bad command

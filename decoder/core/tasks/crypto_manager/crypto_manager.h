@@ -97,6 +97,7 @@ typedef struct {
 } CryptoManager_Request;
 
 //----- Public Functions -----//
+void cryptoManager_Init();
 void cryptoManager_vMainTask(void *pvParameters);
 
 int cryptoManager_GetChannelKdfKey(const channel_id_t channel, const uint8_t **ppKey);

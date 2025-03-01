@@ -75,6 +75,7 @@ int main(void){
     int ret;
     
     // Crypto manager task
+    cryptoManager_Init();
     ret = xTaskCreate(
         cryptoManager_vMainTask, (const char *)"CryptoManager",
         CRYPTO_MANAGER_STACK_SIZE, NULL,
@@ -96,17 +97,6 @@ int main(void){
         printf("@ERROR xTaskCreate() failed to create SubscriptionManager: %d\n", ret);
         while(1);
     }
-
-    // // Flash manager task
-    // ret = xTaskCreate(
-    //     memoryManager_vMainTask, (const char *)"MemoryManager",
-    //     MEMORY_MANAGER_STACK_SIZE, NULL,
-    //     tskIDLE_PRIORITY, &memory_manager_task_id
-    // );
-    // if (ret != pdPASS){
-    //     printf("@ERROR xTaskCreate() failed to create FlashManager: %d\n", ret);
-    //     while(1);
-    // }
 
     // Serial interface manager task
     serialInterfaceManager_Init();

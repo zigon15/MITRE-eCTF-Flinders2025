@@ -49,6 +49,13 @@
             "dependsOn":["build-release"]
         },
         {
+            "label": "flash-docker",
+            "type": "shell",
+            "command": "./scripts/flash-docker.sh",
+            "group": "build",
+            "problemMatcher": [],
+        },
+        {
             "label": "erase flash",
             "type": "shell",
             "command": "openocd",

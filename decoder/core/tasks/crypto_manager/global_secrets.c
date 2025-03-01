@@ -35,7 +35,7 @@ extern const uint8_t secrets_bin_end[];
 
 /******************************** PRIVATE VARIABLES ********************************/
 static uint8_t _globalSecretsValid = 0;
-static uint16_t _numChannels = 0;
+static size_t _numChannels = 0;
 
 /******************************** PRIVATE FUNCTION DECLARATIONS ********************************/
 /** @brief Calculated how long the global secrets should be 
@@ -45,7 +45,7 @@ static uint16_t _numChannels = 0;
  * 
  * @return Expected length of the global secrets given that it contains "numChannels" channels
 */
-static uint32_t _num_channels_to_length(const uint16_t numChannels){
+static uint32_t _num_channels_to_length(const size_t numChannels){
     return SUBSCRIPTION_KDF_KEY_LEN + SUBSCRIPTION_CIPHER_AUTH_TAG_LEN + FRAME_KDF_KEY_LEN + CHANNEL_NUM_LEN + numChannels*(CHANNEL_LEN + CHANNEL_KDF_KEY_LEN);
 }
 
@@ -144,13 +144,6 @@ int secrets_init(void){
     // Check length is good based on number of channels in deployment
     _numChannels = *(uint16_t*)(pSecretsBin + NUM_CHANNELS_OFFSET);
     // printf("-{I} Detected %u Channels in Deployment\n", _numChannels);
-
-    if(_numChannels > MAX_CHANNEL_COUNT){
-        // printf("-{E} Too Many Channels in Deployment, Max %u but Found %u!!\n", MAX_CHANNEL_COUNT, _numChannels);
-        // printf("-ERROR\n\n");
-        return 1;
-    }
-    // printf("-{I} Found %u Channels in Deployment, Less Than the Max of %u :)\n", _numChannels, MAX_CHANNEL_COUNT);
 
     const uint32_t expectedLen = _num_channels_to_length(_numChannels);
     if(expectedLen != secretsLen){

@@ -254,6 +254,10 @@ static int _processRequest(CryptoManager_Request *pRequest){
 }
 
 //----- Public Functions -----//
+void cryptoManager_Init(){
+    secrets_init();
+}
+
 void cryptoManager_vMainTask(void *pvParameters){
     secrets_init();
 

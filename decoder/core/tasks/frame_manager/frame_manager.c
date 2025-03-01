@@ -378,18 +378,6 @@ static int _decodeFrame(
         return 1;
     }
 
-    // Channel is 4 bytes in the subscription update structure but max expected is 2 byte in python
-    // - Verify that the channel fits in 2 bytes to prevent undefined behaviour later on
-    if(pFramePacket->channel > 0xFFFF){
-        // STATUS_LED_RED();
-        // printf(
-        //     "-{E} Channel Number Greater than 0xFFFF!!\n"
-        // );
-        // printf("-FAIL [Channel Num]\n\n");
-        // host_print_error("FrameDecode -> Frame Channel Number too Big\n");
-        return 1;
-    }
-
     // Check device is subscribed to the channel
     if(_checkActiveSub(pFramePacket->channel, pFramePacket->timeStamp) != 0){
         // STATUS_LED_RED();
