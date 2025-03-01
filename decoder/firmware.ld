@@ -15,14 +15,6 @@ SECTIONS {
         *(.rom_handlers*)
     } > ROM
 
-    /* .global_secrets :
-    {   
-        . = ALIGN(16);
-        __global_secret_start = .;
-        KEEP(*(.global_secrets))
-        __global_secret_end = .;
-    } > FLASH */
-
     .text :
     {
         _text = .;
