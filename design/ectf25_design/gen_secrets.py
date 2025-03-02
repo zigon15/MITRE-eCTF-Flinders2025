@@ -95,23 +95,23 @@ def gen_secrets(channels: list[int]) -> bytes:
         AES_KEY_LEN_BYTE, byteorder="little"
     ) for _ in range(len(channels))]
 
-    # Print secrets for debugging
-    logger.debug(f"Generated {len(channels)} Random Channel Keys for Channels {channels}")
-    channel_key_pairs = [
-        f"{{Channel: {channel}, Key: 0x'{key.hex()}'}}" 
-        for channel, key in zip(channels, channel_keys)
-    ]
+    # # Print secrets for debugging
+    # logger.debug(f"Generated {len(channels)} Random Channel Keys for Channels {channels}")
+    # channel_key_pairs = [
+    #     f"{{Channel: {channel}, Key: 0x'{key.hex()}'}}" 
+    #     for channel, key in zip(channels, channel_keys)
+    # ]
 
-    logger.debug(
-        f"Secrets: {{"
-            f"Subscription KDF Key: 0x{subscription_kdf_key.hex()}, "
-            f"Subscription Cypher Auth Tag: 0x{subscription_cypher_auth_tag.hex()}, "
-            f"Frame KDF Key: 0x{frame_kdf_key.hex()}', "
-            f"Flash KDF Key: 0x{flash_kdf_key.hex()}', "  
-            f"Flash KDF Input Key: 0x{flash_kdf_input_key.hex()}', "  
-            f"Channel Secrets: [{', '.join(channel_key_pairs)}]"
-        f"}}"
-    )
+    # logger.debug(
+    #     f"Secrets: {{"
+    #         f"Subscription KDF Key: 0x{subscription_kdf_key.hex()}, "
+    #         f"Subscription Cypher Auth Tag: 0x{subscription_cypher_auth_tag.hex()}, "
+    #         f"Frame KDF Key: 0x{frame_kdf_key.hex()}', "
+    #         f"Flash KDF Key: 0x{flash_kdf_key.hex()}', "  
+    #         f"Flash KDF Input Key: 0x{flash_kdf_input_key.hex()}', "  
+    #         f"Channel Secrets: [{', '.join(channel_key_pairs)}]"
+    #     f"}}"
+    # )
 
     # Pack the data
     # [0]: Subscription KDF key (32 Bytes)
@@ -134,7 +134,7 @@ def gen_secrets(channels: list[int]) -> bytes:
         b"".join(channel_keys)          # Concatenate all channel keys (32 Bytes each)
     )
 
-    logger.debug(f"Secrets Len: {len(secrets)} Bytes")
+    # logger.debug(f"Secrets Len: {len(secrets)} Bytes")
     return secrets
 
 
@@ -175,19 +175,10 @@ def main():
 
     secrets = gen_secrets(args.channels)
 
-    # Print the generated secrets for your own debugging
-    # Attackers will NOT have access to the output of this, but feel free to remove
-    #
-    # NOTE: Printing sensitive data is generally not good security practice
-    logger.debug(f"Generated secrets: {secrets}")
-
     # Open the file, erroring if the file exists unless the --force arg is provided
     with open(args.secrets_file, "wb" if args.force else "xb") as f:
         # Dump the secrets to the file
         f.write(secrets)
-
-    # For your own debugging. Feel free to remove
-    logger.success(f"Wrote secrets to {str(args.secrets_file.absolute())}")
 
 
 if __name__ == "__main__":
