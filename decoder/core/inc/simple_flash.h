@@ -23,6 +23,7 @@
  * enables the interrupt, and disables ICC
 */
 void flash_simple_init(void);
+
 /**
  * @brief Flash Simple Erase Page
  * 
@@ -36,6 +37,7 @@ void flash_simple_init(void);
  * In order to be re-written the entire page must be erased.
 */
 int flash_simple_erase_page(uint32_t address);
+
 /**
  * @brief Flash Simple Read
  * 
@@ -47,6 +49,7 @@ int flash_simple_erase_page(uint32_t address);
  * with the specified amount of bytes
 */
 void flash_simple_read(uint32_t address, void* buffer, uint32_t size);
+
 /**
  * @brief Flash Simple Write
  * 

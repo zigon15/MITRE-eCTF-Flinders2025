@@ -1,6 +1,8 @@
 #include "crypto.h"
 #include <string.h>
 
+//---------- Public Function Definitions ----------//
+
 /** @brief Tests CMAC implementation
  *
  * @return 0 if all test pass, 1 if any test fails

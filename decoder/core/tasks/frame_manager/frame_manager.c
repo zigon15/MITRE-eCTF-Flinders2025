@@ -1,3 +1,12 @@
+/**
+ * @file frame_manager.c
+ * @author Simon Rosenzweig
+ * @brief Frame Manager implementation
+ * @date 2025
+ *
+ * @copyright Copyright (c) 2025 The MITRE Corporation
+ */
+
 #include "frame_manager.h"
 #include "crypto.h"
 
@@ -12,37 +21,46 @@
 #include "host_messaging.h"
 
 //----- Private Constants -----//
+#define RTOS_QUEUE_LENGTH 16
+
 #define FRAME_KDF_DATA_LENGTH 32
 #define FRAME_KDF_CHANNEL_KEY_LEN 18
+
+// Upper 18 bytes of channel key are used in frame KDF
+// - Calculate what index to start copying for the upper 18 bytes
 #define FRAME_KDF_CHANNEL_KEY_OFFSET (CHANNEL_KDF_INPUT_KEY_LEN - FRAME_KDF_CHANNEL_KEY_LEN)
 
 #define CTR_NONCE_RAND_LEN 12
 
-//  Frame Data Packet format
-//  [0]: Channel (4 Bytes)
-//  [4]: AES CTR nonce random bytes (12 Bytes)
-//  [16]: Time Stamp (8 Bytes)
-//  [17]: Frame Length (1 Byte)
-//  [25]: Cipher text (FrameLen + 1 Bytes)
-//  [25 + FrameLen]: MIC (16 bytes)
-//  4 + 12 + 8 + 1 + FrameLen + 16 = 41 + FrameLen
+// Frame Data Packet format
+// [0]: Channel (4 Bytes)
+// [4]: AES CTR nonce random bytes (12 Bytes)
+// [16]: Time Stamp (8 Bytes)
+// [17]: Frame Length (1 Byte)
+// [25]: Cipher text (FrameLen + 1 Bytes)
+// [25 + FrameLen]: MIC (16 bytes)
+// 4 + 12 + 8 + 1 + FrameLen + 16 = 41 + FrameLen
 #define FRAME_PACKET_BASE_LEN (4 + 12 + 8 + 1 + 16)
 #define FRAME_PACKET_CIPHER_TEXT_OFFSET (4 + 12 + 8 + 1)
 
+// Constants added to KDF input to ensure MIC and encryption key are different
 #define FRAME_MIC_KEY_TYPE 0x9E
 #define FRAME_ENCRYPTION_KEY_TYPE 0xD7
 
-#define RTOS_QUEUE_LENGTH 16
-
 //----- Private Types -----//
+
+// Data used to derive the frame MIC and encryption secret key from
 typedef struct __attribute__((packed)) {
+    // Either "FRAME_MIC_KEY_TYPE" or "FRAME_ENCRYPTION_KEY_TYPE"
     uint8_t type;
+    
     uint8_t frameDataLen;
     uint8_t channelKey[FRAME_KDF_CHANNEL_KEY_LEN];
     uint64_t timeStamp;
     channel_id_t channel;
 } frame_kdf_data_t;
 
+// Header information of frame packet
 typedef struct __attribute__((packed)) {
     channel_id_t channel;
     uint8_t ctrNonceRand[CTR_NONCE_RAND_LEN];
@@ -50,6 +68,8 @@ typedef struct __attribute__((packed)) {
     uint8_t frameLen;
 } frame_packet_t;
 
+// Structure to store channel timestamp information to enforce
+// timestamp monotonicity
 typedef struct {
     uint8_t active;
     channel_id_t channel;
@@ -57,12 +77,21 @@ typedef struct {
 } channel_time_stamp_t;
 
 //----- Private Variables -----//
+
 // Task request queue
 static QueueHandle_t _xRequestQueue;
 
+// Stores channel timestamps to enforce timestamp monotonicity
 channel_time_stamp_t _channelTimeStamps[MAX_CHANNEL_COUNT];
 
 //----- Private Functions -----//
+
+/** @brief Find index of given channel in the time stamp storage array
+ * 
+ * @param channel Channel to find index of
+ * 
+ *  @return -1 if channel not found, else array index
+ */
 static int _timestamp_FindChannel(const channel_id_t channel){
     for(size_t i = 0; i < MAX_CHANNEL_COUNT; i++){
         if(_channelTimeStamps[i].active && (_channelTimeStamps[i].channel == channel)){
@@ -72,6 +101,13 @@ static int _timestamp_FindChannel(const channel_id_t channel){
     return -1;
 }
 
+/** @brief Checks it the timestamp has increased for the given channel
+ * 
+ * @param channel Channel to check timestamp increased of
+ * @param timestamp Timestamp to check increased
+ * 
+ *  @return 0 if timestamp is good, else 1 if not incremented
+ */
 static int _timestamp_CheckInc(const channel_id_t channel, const timestamp_t timestamp){
     int idx = _timestamp_FindChannel(channel);
 
@@ -88,6 +124,13 @@ static int _timestamp_CheckInc(const channel_id_t channel, const timestamp_t tim
     return 1;
 }
 
+/** @brief Updates the time stamp check structure for the given channel
+ * 
+ * @param channel Channel to update last timestamp of
+ * @param timestamp New timestamp for channel
+ * 
+ *  @return 0 on success, else 1
+ */
 static int _timestamp_Update(channel_id_t channel, timestamp_t timestamp){
     int idx = _timestamp_FindChannel(channel);
 
@@ -111,22 +154,60 @@ static int _timestamp_Update(channel_id_t channel, timestamp_t timestamp){
     return 1;
 }
 
+/** @brief Calculates the expected frame packet length based on 
+ *         the number of bytes in the frame
+ * 
+ * @param frameLen Frame length in bytes
+ * 
+ *  @return Expected packet length in bytes
+ */
 static size_t _expectedPacketLen(const uint8_t frameLen){
     return FRAME_PACKET_BASE_LEN + frameLen + 1;
 }
 
+/** @brief Returns a pointer to the cipher text in the given frame
+ * 
+ * @param pFramePacket Frame packet to get cipher text from
+ * 
+ *  @return Pointer to frame packet cipher text
+ */
 static const uint8_t* _getCipherText(const frame_packet_t *pFramePacket){
     return ((uint8_t*)pFramePacket + FRAME_PACKET_CIPHER_TEXT_OFFSET);
 }
 
+/** @brief Returns a pointer to the MIC in the given frame
+ * 
+ * @param pFramePacket Frame packet to get MIC from
+ * 
+ *  @return Pointer to frame packet MIC
+ */
 static const uint8_t* _getMIC(const frame_packet_t *pFramePacket, const pkt_len_t pktLen){
     return ((uint8_t*)pFramePacket + pktLen - CRYPTO_MANAGER_MIC_LEN);
 }
 
+/** @brief Calculated the expected cipher text length based on 
+ *         the number of bytes in the frame
+ * 
+ * @param frameLen Number of bytes in the frame
+ * 
+ *  @return Total cipher text length
+ */
 static size_t _calcCipherTextLen(size_t frameLen){
+    // Cipher text format is
+    // [0]: Frame length
+    // [1:1+frameLen]: Frame data
     return frameLen + 1;
 }
 
+/** @brief Assemble KDF input data based on the given frame packet, 
+ *         calls into Crypto Manager
+ * 
+ * @param type key type to derive, either "FRAME_MIC_KEY_TYPE" or "FRAME_ENCRYPTION_KEY_TYPE"
+ * @param pFramePacket Frame packet, some information used in KDF
+ * @param pKdfData KDF input structure to fill out
+ * 
+ *  @return 0 on success, number on fail
+ */
 static int _assembleKdfData(
     const uint8_t type,
     const frame_packet_t *pFramePacket,
@@ -187,6 +268,14 @@ static int _assembleKdfData(
     return 0;
 }
 
+/** @brief Checks the MIC is valid on the given frame packet, 
+ *         calls into Crypto Manager
+ * 
+ * @param pFramePacket Frame packet to check MIC of
+ * @param pktLen Size of pFramePacket
+ * 
+ *  @return 0 if MIC valid, number on fail
+ */
 static int _checkMic(
     const frame_packet_t *pFramePacket,
     const pkt_len_t pktLen
@@ -243,6 +332,16 @@ static int _checkMic(
     return res;
 }
 
+/** @brief Decrypt the given frame packet, 
+ *         calls into Crypto Manager
+ * 
+ * @param pFramePacket Frame packet to decrypt
+ * @param pktLen Size of pFramePacket
+ * @param pPlainText Buffer to store decrypted frame data in
+ * @param plainTextLen Size of pPlainText buffer
+ * 
+ *  @return 0 on success, number on fail
+ */
 static int _decryptData(
     const frame_packet_t *pFramePacket,
     const pkt_len_t pktLen,
@@ -316,6 +415,14 @@ static int _decryptData(
     return res;
 }
 
+/** @brief Checks if the channel has a active subscription at the give 
+ *         timestamp, calls into Channel Manager
+ * 
+ * @param channel Channel to check if subscription is active
+ * @param time Time stamp to check if subscription is active at
+ * 
+ *  @return 0 if active, number on fail
+ */
 static int _checkActiveSub(
     const channel_id_t channel, const timestamp_t time
 ){
@@ -343,6 +450,13 @@ static int _checkActiveSub(
     return res;
 }
 
+/** @brief Decodes the given frame. Active subscription is first checked, 
+ *         then timestamp increased, then MIC then finally frame is decoded
+ * 
+ * @param pFrameDecode Structure holding the raw frame data
+ * 
+ *  @return 0 on success, number on fail
+ */
 static int _decodeFrame(
     const FrameManager_Decode *pFrameDecode
 ){
@@ -459,6 +573,12 @@ static int _decodeFrame(
     return 0;
 }
 
+/** @brief Processes requests from other tasks
+ * 
+ * @param pRequest Pointer to request structure
+ * 
+ * @return 0 if success, other numbers if failed
+ */
 static int _processRequest(FrameManager_Request *pRequest){
     int res = 0;
 
@@ -496,6 +616,11 @@ static int _processRequest(FrameManager_Request *pRequest){
 }
 
 //----- Public Functions -----//
+
+/** @brief Initializes the Frame Manager ready for the main task to be run
+ * 
+ * @note Must be called before RTOS scheduler starts!!
+ */
 void frameManager_Init(void){
     for(size_t i = 0; i < MAX_CHANNEL_COUNT; i++){
         _channelTimeStamps[i].active = 0;
@@ -507,6 +632,10 @@ void frameManager_Init(void){
     );
 }
 
+/** @brief Frame Manager main RTOS task
+ * 
+ * @param pvParameters FreeRTOS task parameters
+ */
 void frameManager_vMainTask(void *pvParameters){
     FrameManager_Request frameRequest;
 
@@ -519,32 +648,13 @@ void frameManager_vMainTask(void *pvParameters){
             // Signal the requesting task that request is complete
             xTaskNotify(frameRequest.xRequestingTask, res, eSetValueWithOverwrite);
         }
-
-        // uint8_t framePacket[] = {
-        //     0x01, 0x00, 0x00, 0x00, 0x6C, 0x86, 0x21, 0x3D, 
-        //     0x2B, 0xF3, 0x9B, 0xE2, 0xCE, 0x60, 0xE7, 0x86, 
-        //     0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
-        //     0x0F, 0x3C, 0x2F, 0xBF, 0x28, 0x74, 0xB5, 0x2E, 
-        //     0xBE, 0xCD, 0x4E, 0xB9, 0x37, 0xD5, 0x3D, 0xC4, 
-        //     0x35, 0xA5, 0x62, 0xC4, 0xF0, 0xE6, 0x61, 0x86, 
-        //     0x39, 0xC5, 0x25, 0x94, 0xF8, 0x1A, 0xD3, 0xA4, 
-        //     0x38,
-        // };
-
-        // uint8_t frameLength = ((frame_packet_t*)framePacket)->frameLen;
-        // uint8_t pPlainText[_calcCipherTextLen(frameLength)];
-
-        // _decodeFrame(
-        //     framePacket, sizeof(framePacket),
-        //     pPlainText, frameLength
-        // );
-        // _decodeFrame(framePacket, sizeof(framePacket));
-
-        // vTaskDelay(pdMS_TO_TICKS(500));
-        // while(1);
     }
 }
 
+/** @brief Returns Frame Manager request queue 
+ * 
+ * @param QueueHandle_t Request queue to send requests to Frame Manager
+ */
 QueueHandle_t frameManager_RequestQueue(void){
     return _xRequestQueue;
 }

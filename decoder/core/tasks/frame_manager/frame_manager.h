@@ -1,12 +1,10 @@
 /**
- * @file decoder.h
+ * @file frame_manager.h
  * @author Simon Rosenzweig
- * @brief Flinders eCTF Decoder Implementation
+ * @brief The Frame Manager handles decoding of frame packets and 
+ *        if valid, sends the frame data back to the host. Frames are 
+ *        protected with a MIC and monotonically increasing timestamp check.
  * @date 2025
- *
- * This source file is part of an example system for MITRE's 2025 Embedded System CTF (eCTF).
- * This code is being provided only for educational purposes for the 2025 MITRE eCTF competition,
- * and may not meet MITRE standards for quality. Use this code at your own risk!
  *
  * @copyright Copyright (c) 2025 The MITRE Corporation
  */
@@ -22,35 +20,58 @@
 #include "decoder.h"
 
 //----- Public Constants -----//
+
+// FreeRTOS stack size for Channel Manager
 #define FRAME_MANAGER_STACK_SIZE 2048
 
 //----- Public Types -----//
+
+// Various requests that can be made to Frame Manager
 enum FrameManager_RequestType {
   FRAME_MANAGER_DECODE,
 };
 
+// Frame data to decode
 typedef struct {
   const uint8_t *pBuff;
   pkt_len_t pktLen;
 } FrameManager_Decode;
 
 //----- Task Queue Types -----//
-// Subscription task request structure
+
+// Frame task request structure
 typedef struct {
+  // Calling task to notify when request is complete
   TaskHandle_t xRequestingTask;
+
+  // Must be of FrameManager_RequestType
   uint8_t requestType;
+
+  // Pointer to structure of "requestType"
   void *pRequest;
+
+  // Size of the pRequest buffer
   size_t requestLen;
 } FrameManager_Request;
 
 //----- Public Functions -----//
+
+/** @brief Initializes the Frame Manager ready for the main task to be run
+ * 
+ * @note Must be called before RTOS scheduler starts!!
+ */
 void frameManager_Init(void);
+
+/** @brief Frame Manager main RTOS task
+ * 
+ * @param pvParameters FreeRTOS task parameters
+ */
 void frameManager_vMainTask(void *pvParameters);
 
+/** @brief Returns Frame Manager request queue 
+ * 
+ * @param QueueHandle_t Request queue to send requests to Frame Manager
+ */
 QueueHandle_t frameManager_RequestQueue(void);
-
-// QueueHandle_t cryptoManager_EncryptionQueue(void);
-// QueueHandle_t cryptoManager_SignatureCheckQueue(void);
-
 
 #endif

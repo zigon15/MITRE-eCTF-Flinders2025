@@ -11,7 +11,8 @@
 #ifndef CRYPTO_TEST_H
 #define CRYPTO_TEST_H
 
-/******************************** PUBLIC FUNCTION PROTOTYPES ********************************/
+//---------- Public Function Prototypes ----------//
+
 /** @brief Tests AES ECB implementation
  *
  * @return 0 if all test pass, 1 if any test fails

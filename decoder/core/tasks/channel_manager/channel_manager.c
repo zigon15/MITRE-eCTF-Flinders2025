@@ -1,3 +1,12 @@
+/**
+ * @file channel_manager.c
+ * @author Simon Rosenzweig
+ * @brief Channel Manager implementation
+ * @date 2025
+ *
+ * @copyright Copyright (c) 2025 The MITRE Corporation
+ */
+
 #include "channel_manager.h"
 
 #include "string.h"
@@ -10,23 +19,30 @@
 
 #include "crypto_manager.h"
 #include "simple_flash.h"
-// #include "global_secrets.h"
 
 //----- Private Constants -----//
+
 #define RTOS_QUEUE_LENGTH 16
+
+// Canary value used to detect if flash is valid or not
+// - used in combination with a MIC!!
 #define FLASH_FIRST_BOOT 0xDAD398CD
 
 #define CHANNEL_KDF_INPUT_KEY_LEN_USED 26
+
 #define CTR_NONCE_RAND_LEN 12
 
 //----- Private Types -----//
+
+// Channel information stored in flash
 typedef struct __attribute__((packed)) {
     uint8_t active;
     channel_id_t id;
     timestamp_t timeStart;
     timestamp_t timeEnd;
 } channel_status_t;
- 
+
+// Flash channel subscription info data storage structure
 typedef struct __attribute__((packed)) {
     // If set to FLASH_FIRST_BOOT, device has booted before.
     uint32_t firstBootFlag; 
@@ -37,6 +53,7 @@ typedef struct __attribute__((packed)) {
     uint8_t mic[CRYPTO_MANAGER_MIC_LEN];
 } flash_entry_t;
 
+// Data used to derive the flash secret key from
 typedef struct __attribute__((packed)) {
     uint16_t numActiveSubs;
     uint8_t flashKey[CHANNEL_KDF_INPUT_KEY_LEN_USED];
@@ -74,6 +91,10 @@ uint8_t _ctrNonceRand[CTR_NONCE_RAND_LEN];
 //     printf("-COMPLETE\n\n");
 // }
 
+/** @brief Calculates the number of active subscriptions
+ * 
+ *  @return Number of active subscriptions
+ */
 static int _numActiveSubs(void){
     int ret = 0;
 
@@ -90,6 +111,9 @@ static int _numActiveSubs(void){
     return ret;
 }
 
+/** @brief Write the _activeChannels structure to flash
+ * 
+ */
 static int _updateFlash(void){
     // Disable all interrupts while writing to flash
     // - Only RAM code can run while writing to flash I think?!?!
@@ -104,6 +128,14 @@ static int _updateFlash(void){
     return 0;
 }
 
+
+/** @brief Calculates the flash data (_activeChannels) MIC, 
+ *         calls into Crypto Manager
+ * 
+ * @param pMic Point to buffer to store the calculated MIC in
+ * 
+ * @return 0 on success, other number on fail
+ */
 static int _calculateMic(uint8_t *pMic){
     int res;
     QueueHandle_t xRequestQueue = cryptoManager_RequestQueue();
@@ -159,6 +191,11 @@ static int _calculateMic(uint8_t *pMic){
     return res;
 }
 
+/** @brief Checks the flash data (_activeChannels) MIC, 
+ *         calls into Crypto Manager
+ * 
+ * @return 0 if valid, other numbers if invalid
+ */
 static int _checkMicValid(void){
     int res;
     QueueHandle_t xRequestQueue = cryptoManager_RequestQueue();
@@ -214,6 +251,10 @@ static int _checkMicValid(void){
     return res;
 }
 
+/** @brief Initializes the flash data (_activeChannels) and updates flash
+ * 
+ * @return 0 if success, other numbers on fail
+ */
 static int _initializeFlash(void){
     int res;
     /* If this is the first boot of this decoder, mark all channels as unsubscribed.
@@ -246,6 +287,12 @@ static int _initializeFlash(void){
     return 0;
 }
 
+/** @brief Updates a channel subscription
+ * 
+ * @param pUpdateSub Pointer to structure with the new subscription information
+ * 
+ * @return 0 if success, other numbers on fail
+ */
 static int _updateSub(const ChannelManager_UpdateSubscription *pUpdateSub){
     int res;
 
@@ -294,10 +341,9 @@ static int _updateSub(const ChannelManager_UpdateSubscription *pUpdateSub){
     //     idx, pUpdateSub->channel, pUpdateSub->timeStart, pUpdateSub->timeEnd
     // );
 
-    // Increment nonce by one
+    // Increment flash nonce by one
     // - Big endian
     _activeChannels.numActiveSubs = _numActiveSubs();
-
     for (size_t i = CTR_NONCE_RAND_LEN - 1; i >= 0; i--){
         _activeChannels.pCtrNonceRand[i]++;
         if (_activeChannels.pCtrNonceRand[i] != 0){
@@ -314,6 +360,12 @@ static int _updateSub(const ChannelManager_UpdateSubscription *pUpdateSub){
     return 0;
 }
 
+/** @brief Checks if subscription for "channel" at "time" is active 
+ * 
+ * @param pCheckActiveSub Pointer to structure of the current channel information
+ * 
+ * @return 0 if subscription valid, other numbers if invalid
+ */
 static int _checkActiveSubscription(const ChannelManager_CheckActiveSub *pCheckActiveSub) {
     if(_flashGood == 0){
         return 1;
@@ -336,7 +388,12 @@ static int _checkActiveSubscription(const ChannelManager_CheckActiveSub *pCheckA
     return 1;
 }
 
-
+/** @brief Gets all the active subscriptions
+ * 
+ * @param pCheckActiveSub Pointer to structure to store the subscription information in
+ * 
+ * @return 0 if success, other numbers if failed
+ */
 static int _getSubs(ChannelManager_GetSubscriptions *pGetSubs){
     if(_flashGood == 0){
         return 1;
@@ -357,6 +414,12 @@ static int _getSubs(ChannelManager_GetSubscriptions *pGetSubs){
     return 0;
 }
 
+/** @brief Processes requests from other tasks
+ * 
+ * @param pRequest Pointer to request structure
+ * 
+ * @return 0 if success, other numbers if failed
+ */
 static int _processRequest(ChannelManager_Request *pRequest){
     int res = 0;
 
@@ -425,22 +488,29 @@ static int _processRequest(ChannelManager_Request *pRequest){
 }
 
 //----- Public Functions -----//
+
+/** @brief Initializes the Channel Manager ready for the main task to be run
+ * 
+ * @note Must be called before RTOS scheduler starts!!
+ */
 void channelManager_Init(void){
     // Initialize the flash peripheral to enable access to persistent memory
     flash_simple_init();
 
     // Generate random nonce if needed later
-    // - Don't want to access this TRNG later as other tasks maybe using it 
+    // - Don't want to access this TRNG in task as other tasks maybe using it!!
     MXC_TRNG_Random(_ctrNonceRand, CTR_NONCE_RAND_LEN);
 
     // Setup request queue
     _xRequestQueue = xQueueCreate(
         RTOS_QUEUE_LENGTH, sizeof(ChannelManager_Request)
     );
-
-    // _printActiveChannels();
 }
 
+/** @brief Channel Manager main RTOS task
+ * 
+ * @param pvParameters FreeRTOS task parameters
+ */
 void channelManager_vMainTask(void *pvParameters){
     // Read starting flash values into our flash status struct
     flash_simple_read(FLASH_STATUS_ADDR, &_activeChannels, sizeof(flash_entry_t));
@@ -459,6 +529,7 @@ void channelManager_vMainTask(void *pvParameters){
     ChannelManager_Request channelRequest;
 
     while (1){
+        // Continually receive requests from other tasks and process them
         if (xQueueReceive(_xRequestQueue, &channelRequest, portMAX_DELAY) == pdPASS){
             // printf("[ChannelManager] @TASK Received Request\n");
             int res = _processRequest(&channelRequest);
@@ -470,6 +541,10 @@ void channelManager_vMainTask(void *pvParameters){
     }
 }
 
+/** @brief Returns Channel Manager request queue 
+ * 
+ * @param QueueHandle_t Request queue to send requests to Channel Manager
+ */
 QueueHandle_t channelManager_RequestQueue(void){
     return _xRequestQueue;
 }

@@ -1,11 +1,22 @@
+/**
+ * @file main.c
+ * @author Simon Rosenzweig
+ * @brief This source file sets up the FreeRTOS tasks. It also has some GCC security hooks.
+ * @date 2025
+ *
+ * @copyright Copyright (c) 2025 The MITRE Corporation
+ */
+
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+
 #include "FreeRTOS.h"
 #include "FreeRTOSConfig.h"
 #include "portmacro.h"
 #include "task.h"
 #include "semphr.h"
+
 #include "mxc_device.h"
 #include "wut.h"
 #include "uart.h"
@@ -25,7 +36,7 @@
 
 #include "status_led.h"
 
-/* Task IDs */
+// Task IDs
 TaskHandle_t crypto_manager_task_id;
 TaskHandle_t subscription_manager_task_id;
 TaskHandle_t serial_interface_manager_task_id;
@@ -77,7 +88,7 @@ int main(void){
     //-- Configure Tasks --// 
     int ret;
     
-    // Crypto manager task
+    // Crypto Manager task
     cryptoManager_Init();
     ret = xTaskCreate(
         cryptoManager_vMainTask, (const char *)"CryptoManager",
@@ -89,7 +100,7 @@ int main(void){
         while(1);
     }
 
-    // Subscription manager task
+    // Subscription Manager task
     subscriptionManager_Init();
     ret = xTaskCreate(
         subscriptionManager_vMainTask, (const char *)"SubscriptionManager",
@@ -101,7 +112,7 @@ int main(void){
         while(1);
     }
 
-    // Serial interface manager task
+    // Serial Interface Manager task
     serialInterfaceManager_Init();
     ret = xTaskCreate(
         serialInterfaceManager_vMainTask, (const char *)"SerialInterfaceManager",
@@ -112,9 +123,8 @@ int main(void){
         printf("@ERROR xTaskCreate() failed to create SerialInterfaceManager: %d\n", ret);
         while(1);
     }
-    serialInterfaceManager_SetTaskId(serial_interface_manager_task_id);
 
-    // Channel manager task
+    // Channel Manager task
     channelManager_Init();
     ret = xTaskCreate(
         channelManager_vMainTask, (const char *)"ChannelManager",
@@ -126,7 +136,7 @@ int main(void){
         while(1);
     }
 
-    // Frame manager task
+    // Frame Manager task
     frameManager_Init();
     ret = xTaskCreate(
         frameManager_vMainTask, (const char *)"FrameManager",

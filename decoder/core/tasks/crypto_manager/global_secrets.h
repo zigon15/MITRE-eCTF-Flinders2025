@@ -1,12 +1,8 @@
 /**
  * @file global_secrets.h
  * @author Simon Rosenzweig
- * @brief eCTF Global Secrets Implementation
+ * @brief This file handle access to the global secrets which are compiled into the binary.
  * @date 2025
- *
- * This source file is part of an example system for MITRE's 2025 Embedded System CTF (eCTF).
- * This code is being provided only for educational purposes for the 2025 MITRE eCTF competition,
- * and may not meet MITRE standards for quality. Use this code at your own risk!
  *
  * @copyright Copyright (c) 2025 The MITRE Corporation
  */
@@ -18,9 +14,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
-/******************************** PRIMITIVE TYPES ********************************/
+//---------- Public Types ----------//
 
-/******************************** PUBLIC CONSTANTS ********************************/
+//---------- Public Constants ----------//
 #define SUBSCRIPTION_KDF_KEY_LEN 32
 #define SUBSCRIPTION_CIPHER_AUTH_TAG_LEN 16
 #define FRAME_KDF_KEY_LEN 32
@@ -30,7 +26,7 @@
 #define CHANNEL_LEN 4
 #define CHANNEL_KDF_INPUT_KEY_LEN 32
 
-/******************************** PUBLIC FUNCTION PROTOTYPES ********************************/
+//---------- Public Functions ----------//
 
 /** @brief Initializes the global secrets module.
  *         Checks the format of the global secrets in flash makes senses.

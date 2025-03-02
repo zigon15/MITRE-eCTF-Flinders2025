@@ -1,5 +1,5 @@
 /**
- * @file "crypto.c"
+ * @file crypto.c
  * @author Simon Rosenzweig
  * @brief Crypto API Implementation using MAX AES accelerator
  * @date 2025
@@ -14,7 +14,8 @@
 #include "mxc_errors.h"
 #include "max78000.h"
 
-/******************************** PRIVATE FUNCTION DECLARATIONS ********************************/
+//---------- Private Functions ----------//
+
 /** @brief Bit XORs a block of data 
  *
  * @param pDataIn1 Data buff 1 to XOR with data buff 2
@@ -56,7 +57,8 @@ void _block_shift_left(uint8_t *pData, const size_t len){
   }
 }
 
-/******************************** PUBLIC FUNCTION DECLARATIONS ********************************/
+//---------- Public Function Defintions ----------//
+
 /** @brief Initializes pherpherials required for crypto operations
  *
  * @return 0 on success, MXC type errors

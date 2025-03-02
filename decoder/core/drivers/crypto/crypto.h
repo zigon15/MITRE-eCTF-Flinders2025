@@ -1,9 +1,8 @@
 /**
- * @file "crypto.h"
+ * @file crypto.h
  * @author Simon Rosenzweig
  * @brief Crypto API Implementation using MAX AES accelerator
  * @date 2025
- *
  *
  * @copyright Copyright (c) 2025 The MITRE Corporation
  */
@@ -15,19 +14,22 @@
 #include <stdio.h>
 #include "aes.h"
 
-/******************************** PUBLIC CONSTANTS ********************************/
+//---------- Public Constants ----------//
+
 #define CRYPTO_AES_BLOCK_SIZE_BIT 128
 #define CRYPTO_AES_BLOCK_SIZE_BYTE 16
 
 #define CRYPTO_CMAC_OUTPUT_SIZE 16
 
-/******************************** PUBLIC TYPES ********************************/
+//---------- Public Types ----------//
+
 typedef struct {
     size_t length;
     uint8_t *data;
 } crypto_buffer_t;
 
-/******************************** PUBLIC FUNCTION PROTOTYPES ********************************/
+//---------- Public Function Prototypes ----------//
+
 /** @brief Initializes pherpherials required for crypto operations
  *
  * @return 0 on success, MXC type errors
@@ -149,8 +151,7 @@ void crypto_secure_zero(void *pData, size_t len);
  */
 void crypto_buffer_cleanup(crypto_buffer_t *pCryptBuf);
 
-
-/******************************** PUBLIC MACROS ********************************/
+//---------- Public Macros ----------//
 
 /** @brief Creates a buffer which will auto zero when variables 
  *         goes out of scope to prevent secret leakage

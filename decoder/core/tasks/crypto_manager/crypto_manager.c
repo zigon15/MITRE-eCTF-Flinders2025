@@ -1,3 +1,13 @@
+/**
+ * @file crypto_manager.c
+ * @author Simon Rosenzweig
+ * @brief Crypto Manager implementation
+ * @date 2025
+ *
+ * @copyright Copyright (c) 2025 The MITRE Corporation
+ */
+
+
 #include "crypto_manager.h"
 
 #include "FreeRTOS.h"
@@ -9,18 +19,28 @@
 #include "global_secrets.h"
 
 //----- Private Constants -----//
+
 #define RTOS_QUEUE_LENGTH 16
 
 #define CTR_NONCE_RAND_LEN 12
+
 #define CRYPTO_MANAGER_KEY_LEN 32
 
 //----- Private Variables -----//
+
 // Task request queue
 static QueueHandle_t _xRequestQueue;
 
 const uint32_t _decoder_id = DECODER_ID;
 
 //----- Private Functions -----//
+
+/** @brief Derives a AES256 key using AES256 CTR from the given key derivation data
+ * 
+ * @param pKeyDerivationData Pointer to key derivation information structure
+ * 
+ * @return 0 on success, other numbers if failed
+ */
 static int _deriveAes256Key(
     const CryptoManager_KeyDerivationData *pKeyDerivationData,
     uint8_t *pKey
@@ -82,6 +102,13 @@ static int _deriveAes256Key(
     return 0;
 }
 
+/** @brief Derives a key and decrypts data using the derived key
+ * 
+ * @param pDecrypt Pointer to decryption structure containing KDF information
+ *                 and cipher text to decrypt
+ * 
+ * @return 0 on success, other numbers if failed
+ */
 static int _decryptData(const CryptoManager_DecryptData *pDecrypt){
     int res = 0;
 
@@ -116,6 +143,13 @@ static int _decryptData(const CryptoManager_DecryptData *pDecrypt){
     return 0;
 }
 
+/** @brief Derives a key and checks the MIC based on the derived key
+ * 
+ * @param pSigCheck Pointer to signature check structure containing KDF information,
+ *                  data to check signature of and signature to check against
+ *                 
+ * @return 0 on success, other numbers if failed
+ */
 static int _signatureCheck(CryptoManager_SignatureCheck *pSigCheck){
     int res = 0;
 
@@ -131,7 +165,7 @@ static int _signatureCheck(CryptoManager_SignatureCheck *pSigCheck){
     // printf("-{I} MIC Input: ");
     // crypto_print_hex(pSigCheck->pData, pSigCheck->length);
 
-    // Calculate expect MIC on subscription packet
+    // Calculate expect MIC packet on given data
     CRYPTO_CREATE_CLEANUP_BUFFER(calculatedMic, CRYPTO_MANAGER_MIC_LEN);
     res = crypto_AES_CMAC(
         pMicKey, MXC_AES_256BITS, 
@@ -157,6 +191,13 @@ static int _signatureCheck(CryptoManager_SignatureCheck *pSigCheck){
     return 0;
 }
 
+/** @brief Derives a key and signs the given data using the derived key
+ * 
+ * @param pSigSign Pointer to signature structure containing KDF information,
+ *                  data to sign, and where to write the signature to
+ *                 
+ * @return 0 on success, other numbers if failed
+ */
 static int _signatureSign(CryptoManager_SignatureSign *pSigSign){
     int res = 0;
 
@@ -172,7 +213,7 @@ static int _signatureSign(CryptoManager_SignatureSign *pSigSign){
     // printf("-{I} MIC Input: ");
     // crypto_print_hex(pSigSign->pData, pSigSign->length);
 
-    // Calculate expect MIC on subscription packet
+    // Calculate MIC on given data
     CRYPTO_CREATE_CLEANUP_BUFFER(pTmpMic, CRYPTO_MANAGER_MIC_LEN);
     res = crypto_AES_CMAC(
         pMicKey, MXC_AES_256BITS, 
@@ -190,6 +231,12 @@ static int _signatureSign(CryptoManager_SignatureSign *pSigSign){
     return 0;
 }
 
+/** @brief Checks the subscription cipher auth tag is good
+ * 
+ * @param pCipherAuthTagCheck Pointer to cipher auth tag structure
+ *                 
+ * @return 0 if good, other numbers if auth token bad
+ */
 static int _subCipherAuthTagCheck(CryptoManager_SubDecryptedAuthTokenCheck *pCipherAuthTagCheck){
     int res = 0;
 
@@ -223,6 +270,12 @@ static int _subCipherAuthTagCheck(CryptoManager_SubDecryptedAuthTokenCheck *pCip
     return 0;
 }
 
+/** @brief Processes requests from other tasks
+ * 
+ * @param pRequest Pointer to request structure
+ * 
+ * @return 0 if success, other numbers if failed
+ */
 static int _processRequest(CryptoManager_Request *pRequest){
     int res;
 
@@ -304,6 +357,11 @@ static int _processRequest(CryptoManager_Request *pRequest){
 }
 
 //----- Public Functions -----//
+
+/** @brief Initializes the Crypto Manager ready for the main task to be run
+ * 
+ * @note Must be called before RTOS scheduler starts!!
+ */
 void cryptoManager_Init(void){
     secrets_init();
 
@@ -313,6 +371,10 @@ void cryptoManager_Init(void){
     );
 }
 
+/** @brief Crypto Manager main RTOS task
+ * 
+ * @param pvParameters FreeRTOS task parameters
+ */
 void cryptoManager_vMainTask(void *pvParameters){
     secrets_init();
 
@@ -332,18 +394,40 @@ void cryptoManager_vMainTask(void *pvParameters){
     }
 }
 
-int cryptoManager_GetChannelKdfInputKey(const channel_id_t channel, const uint8_t **ppKey){
-    return secrets_get_channel_kdf_key(channel, ppKey);
-}
-
-int cryptoManager_GetFlashKdfInputKey(const uint8_t **ppKey){
-    return secrets_get_flash_kdf_input_key(ppKey);
-}
-
+/** @brief Returns Crypto Manager request queue 
+ * 
+ * @param QueueHandle_t Request queue to send requests to Crypto Manager
+ */
 QueueHandle_t cryptoManager_RequestQueue(void){
     return _xRequestQueue;
 }
 
+/** @brief Updated the given pointer to point to the channel KDF key for 
+ *         the specified channel.
+ * 
+ * @param channel Channel to get the KDF key for.
+ * @param ppKey Set to point to the specified channel KDF key.
+ * 
+ *  @return 0 upon success, 1 if channel not found or failed.
+*/
+int cryptoManager_GetChannelKdfInputKey(const channel_id_t channel, const uint8_t **ppKey){
+    return secrets_get_channel_kdf_key(channel, ppKey);
+}
+
+/** @brief Updates the given pointer to point to the flash KDF input key.
+ * 
+ * @param ppKey Set to point to the flash KDF input key.
+ * 
+ *  @return 0 upon success, 1 if error.
+*/
+int cryptoManager_GetFlashKdfInputKey(const uint8_t **ppKey){
+    return secrets_get_flash_kdf_input_key(ppKey);
+}
+
+/** @brief Returns the decoder ID.
+ * 
+ *  @return The current decoder ID.
+*/
 decoder_id_t cryptoManager_DecoderId(void){
     return _decoder_id;
 }

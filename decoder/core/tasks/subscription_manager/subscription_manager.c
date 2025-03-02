@@ -1,5 +1,13 @@
+/**
+ * @file subscription_manager.c
+ * @author Simon Rosenzweig
+ * @brief Channel Manager implementation
+ * @date 2025
+ *
+ * @copyright Copyright (c) 2025 The MITRE Corporation
+ */
+
 #include "subscription_manager.h"
-#include "crypto.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -11,8 +19,13 @@
 #include "global_secrets.h"
 
 #include "host_messaging.h"
+#include "crypto.h"
 
 //----- Private Constants -----//
+#define RTOS_QUEUE_LENGTH 16
+
+#define CTR_NONCE_RAND_LEN 12
+
 #define SUBSCRIPTION_UPDATE_MSG_LEN 64
 
 #define SUBSCRIPTION_KDF_DATA_LENGTH 32
@@ -20,21 +33,24 @@
 
 #define SUBSCRIPTION_CIPHER_TEXT_LEN 32
 
+
+// Constants added to KDF input to ensure MIC and encryption key are different
 #define SUBSCRIPTION_MIC_KEY_TYPE 0xC7
 #define SUBSCRIPTION_ENCRYPTION_KEY_TYPE 0x98
 
-#define CTR_NONCE_RAND_LEN 12
-
-#define RTOS_QUEUE_LENGTH 16
-
 //----- Private Types -----//
+
+// Data used to derive the frame MIC and encryption secret key from
 typedef struct __attribute__((packed)) {
+    // Either "SUBSCRIPTION_MIC_KEY_TYPE" or "SUBSCRIPTION_ENCRYPTION_KEY_TYPE"
     uint8_t type;
+
     uint8_t channelKey[SUBSCRIPTION_KDF_CHANNEL_KEY_LEN];
     uint32_t deviceId;
     channel_id_t channel;
 } subscription_kdf_data_t;
   
+// Subscription update packet structure
 typedef struct __attribute__((packed)) {
     channel_id_t channel;
     uint8_t ctrNonceRand[CTR_NONCE_RAND_LEN];
@@ -43,10 +59,20 @@ typedef struct __attribute__((packed)) {
 } subscription_update_packet_t;
 
 //----- Private Variables -----//
+
 // Task request queue
 static QueueHandle_t _xRequestQueue;
 
 //----- Private Functions -----//
+
+/** @brief Assemble KDF input data based on the given subscription packet
+ * 
+ * @param type key type to derive, either "SUBSCRIPTION_MIC_KEY_TYPE" or "SUBSCRIPTION_ENCRYPTION_KEY_TYPE"
+ * @param pSubscriptionPacket Frame packet, some information used in KDF
+ * @param pKdfData KDF input structure to fill out
+ * 
+ *  @return 0 on success, number on fail
+ */
 static int _assembleKdfData(
     const uint8_t type,
     const subscription_update_packet_t *pSubscriptionPacket,
@@ -102,6 +128,14 @@ static int _assembleKdfData(
     return 0;
 }
 
+/** @brief Checks the MIC is valid on the given frame packet, 
+ *         calls into Crypto Manager
+ * 
+ * @param pSubscriptionPacket Subscription update packet to calculate and 
+ *                            check MIC on
+ * 
+ *  @return 0 if MIC valid, number on fail
+ */
 static int _checkMic(
     const subscription_update_packet_t *pSubscriptionPacket
 ){  
@@ -157,6 +191,14 @@ static int _checkMic(
     return res;
 }
 
+/** @brief Checks the decrypted auth token is valid, 
+ *         calls into Crypto Manager
+ * 
+ * @param pAuthToken Pointer to auth token
+ * @param len Size of pAuthToken
+ * 
+ *  @return 0 if valid, number on fail
+ */
 static int _checkDecryptedAuthToken(
     const uint8_t *pAuthToken, uint16_t len
 ){
@@ -186,6 +228,15 @@ static int _checkDecryptedAuthToken(
     return res;
 }
 
+/** @brief Decrypts the cipher text in the subscription update packet, 
+ *         calls into Crypto Manager
+ * 
+ * @param pSubscriptionPacket Pointer to subscription update packet
+ * @param pPlainText Point to buffer to store plain text in
+ * @param plainTextLen Size of pPlainText buffer
+ * 
+ *  @return 0 on success, number on fail
+ */
 static int _decryptData(
     const subscription_update_packet_t *pSubscriptionPacket,
     uint8_t *pPlainText, size_t plainTextLen
@@ -257,6 +308,14 @@ static int _decryptData(
     return res;
 }
 
+/** @brief Updates the channel subscription, calls into Channel Manager
+ * 
+ * @param channel Channel to update subscription of
+ * @param timeStart Subscription start timestamp
+ * @param timeEnd Subscription end timestamp
+ * 
+ *  @return 0 on success, number on fail
+ */
 static int _updateSubscription(
     const channel_id_t channel, 
     const timestamp_t timeStart, const timestamp_t timeEnd
@@ -287,6 +346,13 @@ static int _updateSubscription(
     return 0;
 }
 
+/** @brief Process a subscription update packet and adds it if valid. Parameters are
+ *         checked, then MIC, then cipher auth token
+ * 
+ * @param pSubUpdate Pointer to subscription update packet
+ * 
+ *  @return 0 on success, number on fail
+ */
 static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
     int res;
 
@@ -386,6 +452,12 @@ static int _addSubscription(SubscriptionManager_SubscriptionUpdate *pSubUpdate){
     return 0;
 }
 
+/** @brief Processes requests from other tasks
+ * 
+ * @param pRequest Pointer to request structure
+ * 
+ * @return 0 if success, other numbers if failed
+ */
 static int _processRequest(SubscriptionManager_Request *pRequest){
     int res = 0;
 
@@ -424,6 +496,11 @@ static int _processRequest(SubscriptionManager_Request *pRequest){
 
 
 //----- Public Functions -----//
+
+/** @brief Initializes the Subscription Manager ready for the main task to be run
+ * 
+ * @note Must be called before RTOS scheduler starts!!
+ */
 void subscriptionManager_Init(void){
     // Setup request queue
     _xRequestQueue = xQueueCreate(
@@ -431,6 +508,10 @@ void subscriptionManager_Init(void){
     );
 }
 
+/** @brief Subscription Interface Manager main RTOS task
+ * 
+ * @param pvParameters FreeRTOS task parameters
+ */
 void subscriptionManager_vMainTask(void *pvParameters){
     SubscriptionManager_Request subscriptionRequest;
 
@@ -446,6 +527,10 @@ void subscriptionManager_vMainTask(void *pvParameters){
     }
 }
 
+/** @brief Returns Subscription Manager request queue 
+ * 
+ * @param QueueHandle_t Request queue to send requests to Subscription Manager
+ */
 QueueHandle_t subscriptionManager_RequestQueue(void){
     return _xRequestQueue;
 }

@@ -1,10 +1,19 @@
+/**
+ * @file global_secrets.h
+ * @author Simon Rosenzweig
+ * @brief Global Secrets Implementation
+ * @date 2025
+ *
+ * @copyright Copyright (c) 2025 The MITRE Corporation
+ */
 #include "global_secrets.h"
 #include <stdio.h>
 #include <string.h>
 
 #include "crypto.h"
 
-/******************************** PRIVATE CONSTANTS ********************************/
+//---------- Private Constants ----------//
+
 // Minimum size for global secrets
 // [0]: Subscription KDF Key (32 bytes)
 // [32]: Subscription Cipher Auth Tag Key (16 bytes)
@@ -24,22 +33,26 @@
 #define NUM_CHANNELS_OFFSET                 (FLASH_KDF_INPUT_KEY_OFFSET + FRAME_KDF_KEY_LEN)
 #define CHANNEL_INFO_OFFSET                 (NUM_CHANNELS_OFFSET + CHANNEL_NUM_LEN)
 
-/******************************** PRIVATE TYPES ********************************/
+//---------- Private Types ----------//
 typedef struct __attribute__((packed)) {
     channel_id_t channel;
     uint8_t pKey[CHANNEL_KDF_INPUT_KEY_LEN];
 } channel_key_pair_t;
 
-/******************************** EXTERN VARIABLES ********************************/
+//---------- Extern Variables ----------//
+
 // Start and end bytes of the global secrets
+// - Automatically set in the linker script
 extern const uint8_t secrets_bin_start[];
 extern const uint8_t secrets_bin_end[];
 
-/******************************** PRIVATE VARIABLES ********************************/
+//---------- Private Variables ----------//
+
 static uint8_t _globalSecretsValid = 0;
 static size_t _numChannels = 0;
 
-/******************************** PRIVATE FUNCTION DECLARATIONS ********************************/
+//---------- Private Functions ----------//
+
 /** @brief Calculated how long the global secrets should be 
  *         based on the specified number of channels.
  *  
@@ -121,7 +134,7 @@ static int _find_channel_info(
 //     }
 // }
 
-/******************************** PUBLIC FUNCTION DECLARATIONS ********************************/
+//---------- Public Functions ----------//
 
 /** @brief Initializes the global secrets module. 
  *         Checks the format of the global secrets in flash makes senses.
@@ -146,7 +159,7 @@ int secrets_init(void){
     // }
     // printf("\n");
 
-    //----- Validate format -=---//
+    //----- Validate format -----//
     // Check length is good based on number of channels in deployment
     _numChannels = *(uint16_t*)(pSecretsBin + NUM_CHANNELS_OFFSET);
     // printf("-{I} Detected %u Channels in Deployment\n", _numChannels);
