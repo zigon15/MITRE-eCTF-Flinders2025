@@ -50,9 +50,17 @@ SUBSCRIPTION_ENCRYPTION_KEY_TYPE = 0x98
 def subscription_derive_keys(
     device_id: int,
     channel: int, channel_key: bytes, subscription_kdf_key: bytes
-) -> bytes:
+):
     """
-    AES Key Derivation Function for subscription update MIC and encryption
+    AES Key Derivation Function for subscription update MIC and encryption keys
+
+    :param device_id: Device ID -> Used for KDF input and AES CTR nonce
+    :param channel_key: Channel Key -> Used as KDF input
+    :param subscription_kdf_key: Used as key for AES CTR KDF
+
+    :return mic_key: Derived key for MIC
+    :return encryption_key: Derived key for Encryption
+    :return ctr_nonce_rand: 12 byte random nonce used in KDF
     """
 
     if len(subscription_kdf_key) != AES_KEY_LEN_BYTE:
@@ -140,6 +148,19 @@ def subscription_encrypt_payload(
     subscription_cypher_auth_tag: bytes,
     start: int, end: int,
 ):  
+    """
+    Generates a encrypted subscription update payload containing the start 
+    timestamp, cipher auth tag, and end timestamp
+
+    :param encryption_key: Key to use for AES CTR encryption
+    :param ctr_nonce_rand: 12 byte random portion of AES CTR nonce 
+    :param subscription_cypher_auth_tag: Subscription cipher auth tag to add to plain text
+    :param start: Timestamp start to add to plain text
+    :param end: Timestamp end to add to plain text
+
+    :return cypher_text: Encrypted plain text
+    """
+        
     # CHECK: We can use the same nonce here as the key is different, maybe?!?!
     ctr_nonce = (b'\x00' * 4) + ctr_nonce_rand
     # print("Encryption Nonce (hex):", nonce.hex())

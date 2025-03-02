@@ -105,19 +105,31 @@ class GlobalSecrets:
         }
     
     def subscription_kdf_key(self):
+        """
+        Returns the subscription KDF key
+        """
         return self.secrets["SubscriptionKdfKey"]
     
     def subscription_cipher_auth_tag(self):
+        """
+        Returns the subscription cipher auth tag
+        """
         return self.secrets["SubscriptionCipherAuthTag"]
     
 
     def frame_kdf_key(self):
+        """
+        Returns the frame KDF key
+        """
         return self.secrets["FrameKdfKey"]
     
     def channel_key(
         self, channel: int
     ) -> str:
-        """Retrieve the key for a given channel from the secrets
+        """
+        Returns the key for a given channel from the secrets
+
+        :return: Channel key if channel found, else None
         """
 
         channel_key_pairs = self.secrets["ChannelSecrets"]

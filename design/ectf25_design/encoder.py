@@ -69,7 +69,18 @@ class Encoder:
         frame_data_len: int, frame_kdf_key: bytes
     ):
         """
-        AES Key Derivation Function for frame encode MIC and encryption
+        AES Key Derivation Function for frame encoding MIC and encryption keys
+
+        :param timestamp: Frame timestamp
+        :param channel: Channel to encrypt frame for
+        :param channel_key: Channel key used as input for KDF
+        :param frame_data_len: Frame data length
+        :param frame_kdf_key: Key used in AES CTR KDF
+
+
+        :return mic_key: Derived key for MIC
+        :return encryption_key: Derived key for Encryption
+        :return ctr_nonce_rand: 12 byte random nonce used in KDF
         """
         
         if len(frame_kdf_key) != AES_KEY_LEN_BYTE:
@@ -159,6 +170,16 @@ class Encoder:
         encryption_key: bytes, ctr_nonce_rand: bytes, 
         frame_data: bytes,
     ):  
+        """
+        Generates a encrypted frame encode payload containing the frame data
+
+        :param encryption_key: Key to use for AES CTR encryption
+        :param ctr_nonce_rand: 12 byte random portion of AES CTR nonce 
+        :param frame_data: Frame data to encrypt
+
+        :return cypher_text: Encrypted plain text
+        """
+            
         # CHECK: We can use the same nonce here as the key is different, maybe?!?!
         ctr_nonce = (b'\x00' * 4) + ctr_nonce_rand
         # print("Encryption Nonce (hex):", nonce.hex())
@@ -202,8 +223,6 @@ class Encoder:
 
         :returns: The encoded frame, which will be sent to the Decoder
         """
-        # TODO: encode the satellite frames so that they meet functional and
-        #  security requirements
 
         # Check frame length is good
         frame_len = len(frame)
