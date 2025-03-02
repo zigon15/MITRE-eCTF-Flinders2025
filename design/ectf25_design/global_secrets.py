@@ -17,6 +17,8 @@ from loguru import logger
 SUBSCRIPTION_KDF_KEY_LEN = 32
 SUBSCRIPTION_CIPHER_AUTH_TAG_LEN = 16
 FRAME_KDF_KEY_LEN = 32
+FLASH_KDF_KEY_LEN = 32
+FLASH_KDF_KEY_INPUT_LEN = 32
 CHANNEL_NUM_LEN = 2
 CHANNEL_LEN = 4
 CHANNEL_KEY_LEN = 32
@@ -50,8 +52,16 @@ class GlobalSecrets:
         # [48:79] bytes are frame KDF key
         frame_kdf_key = raw_secrets[offset:offset+FRAME_KDF_KEY_LEN]
         offset += FRAME_KDF_KEY_LEN
+        
+        # [80:111] bytes are flash KDF key
+        flash_kdf_key = raw_secrets[offset:offset+FLASH_KDF_KEY_LEN]
+        offset += FLASH_KDF_KEY_LEN
 
-        # [80:81] bytes are number of channels (16b) followed by channel IDs (32b each)
+        # [112:143] bytes are flash KDF input key
+        flash_kdf_input_key = raw_secrets[offset:offset+FLASH_KDF_KEY_INPUT_LEN]
+        offset += FLASH_KDF_KEY_INPUT_LEN
+
+        # [144:145] bytes are number of channels (16b) followed by channel IDs (32b each)
         num_channels = struct.unpack('<H', raw_secrets[offset:offset+CHANNEL_NUM_LEN])[0]
         offset += CHANNEL_NUM_LEN
 

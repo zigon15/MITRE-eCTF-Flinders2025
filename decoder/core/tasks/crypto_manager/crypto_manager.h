@@ -30,12 +30,14 @@
 
 //----- Public Types -----//
 enum CryptoManager_KeySource {
-  FRAME_KDF_KEY,
-  SUBSCRIPTION_KDF_KEY,
+  KEY_SOURCE_SUBSCRIPTION_KDF,
+  KEY_SOURCE_FRAME_KDF,
+  KEY_SOURCE_FLASH_KDF,
 };
 
 enum CryptoManager_RequestType {
   CRYPTO_MANAGER_REQ_SIG_CHECK,
+  CRYPTO_MANAGER_REQ_SIG_SIGN,
   CRYPTO_MANAGER_REQ_CHECK_SUB_DECRYPTED_AUTH_TOKEN,
   CRYPTO_MANAGER_REQ_DECRYPT,
 };
@@ -65,6 +67,19 @@ typedef struct {
   // Signature to check
   const uint8_t *pExpectedSignature; 
 } CryptoManager_SignatureCheck;
+
+// Signature sign structure
+typedef struct {
+  // KDF data for AES KEY
+  CryptoManager_KeyDerivationData kdfData;
+
+  // Data to sign
+  const uint8_t *pData; 
+  size_t length;
+
+  // Where to store signature
+  uint8_t *pSignature; 
+} CryptoManager_SignatureSign;
 
 // Encrypt data structure
 typedef struct {
@@ -97,10 +112,11 @@ typedef struct {
 } CryptoManager_Request;
 
 //----- Public Functions -----//
-void cryptoManager_Init();
+void cryptoManager_Init(void);
 void cryptoManager_vMainTask(void *pvParameters);
 
-int cryptoManager_GetChannelKdfKey(const channel_id_t channel, const uint8_t **ppKey);
+int cryptoManager_GetChannelKdfInputKey(const channel_id_t channel, const uint8_t **ppKey);
+int cryptoManager_GetFlashKdfInputKey(const uint8_t **ppKey);
 
 QueueHandle_t cryptoManager_RequestQueue(void);
 

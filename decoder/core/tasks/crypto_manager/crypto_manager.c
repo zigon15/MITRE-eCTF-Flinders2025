@@ -30,13 +30,17 @@ static int _deriveAes256Key(
     // Get KDF key
     const uint8_t *pKdfKey;
     switch (pKeyDerivationData->keySource){
-        case FRAME_KDF_KEY:
+        case KEY_SOURCE_SUBSCRIPTION_KDF:
+            // printf("-{I} Using Subscription KDF key\n");
+            res = secrets_get_subscription_kdf_key(&pKdfKey);
+            break;
+        case KEY_SOURCE_FRAME_KDF:
             // printf("-{I} Using Frame KDF key\n");
             res = secrets_get_frame_kdf_key(&pKdfKey);
             break;
-        case SUBSCRIPTION_KDF_KEY:
-            // printf("-{I} Using Subscription KDF key\n");
-            res = secrets_get_subscription_kdf_key(&pKdfKey);
+        case KEY_SOURCE_FLASH_KDF:
+            // printf("-{I} Using Frame KDF key\n");
+            res = secrets_get_flash_kdf_key(&pKdfKey);
             break;
         default:
             // printf("-{E} Bad KDF key source!!\n");
@@ -153,6 +157,39 @@ static int _signatureCheck(CryptoManager_SignatureCheck *pSigCheck){
     return 0;
 }
 
+static int _signatureSign(CryptoManager_SignatureSign *pSigSign){
+    int res = 0;
+
+    // Derive key
+    CRYPTO_CREATE_CLEANUP_BUFFER(pMicKey, CRYPTO_MANAGER_KEY_LEN);
+    res = _deriveAes256Key(&(pSigSign->kdfData), pMicKey);
+    if(res != 0){
+        return res;
+    }
+
+    // printf("-{I} MIC Key: ");
+    // crypto_print_hex(pMicKey, CRYPTO_MANAGER_KEY_LEN);
+    // printf("-{I} MIC Input: ");
+    // crypto_print_hex(pSigSign->pData, pSigSign->length);
+
+    // Calculate expect MIC on subscription packet
+    CRYPTO_CREATE_CLEANUP_BUFFER(pTmpMic, CRYPTO_MANAGER_MIC_LEN);
+    res = crypto_AES_CMAC(
+        pMicKey, MXC_AES_256BITS, 
+        pSigSign->pData, pSigSign->length,
+        pTmpMic
+    );
+    if(res != 0){
+        return res;
+    }
+
+    // printf("-{I} Calculated MIC: ");
+    // crypto_print_hex(pTmpMic, CRYPTO_MANAGER_MIC_LEN);
+
+    memcpy(pSigSign->pSignature, pTmpMic, CRYPTO_MANAGER_MIC_LEN);
+    return 0;
+}
+
 static int _subCipherAuthTagCheck(CryptoManager_SubDecryptedAuthTokenCheck *pCipherAuthTagCheck){
     int res = 0;
 
@@ -216,6 +253,19 @@ static int _processRequest(CryptoManager_Request *pRequest){
             res = _signatureCheck(pSigCheck);
             break;
 
+        case CRYPTO_MANAGER_REQ_SIG_SIGN:            
+            // printf("-{I} Signature Sign Request\n");
+            // Check request length is good
+            if(pRequest->requestLen != sizeof(CryptoManager_SignatureSign)){
+                // printf("-{E} Bad Request Length!!\n");
+                return 0;
+            }
+
+            // Check signature
+            CryptoManager_SignatureSign *pSigSign = pRequest->pRequest;
+            res = _signatureSign(pSigSign);
+            break;
+
         case CRYPTO_MANAGER_REQ_DECRYPT:
             // printf("-{I} Decryption Request\n");
 
@@ -254,17 +304,17 @@ static int _processRequest(CryptoManager_Request *pRequest){
 }
 
 //----- Public Functions -----//
-void cryptoManager_Init(){
-    secrets_init();
-}
-
-void cryptoManager_vMainTask(void *pvParameters){
+void cryptoManager_Init(void){
     secrets_init();
 
     // Setup request queue
     _xRequestQueue = xQueueCreate(
         RTOS_QUEUE_LENGTH, sizeof(CryptoManager_Request)
     );
+}
+
+void cryptoManager_vMainTask(void *pvParameters){
+    secrets_init();
 
     CryptoManager_Request cryptoRequest;
 
@@ -282,8 +332,12 @@ void cryptoManager_vMainTask(void *pvParameters){
     }
 }
 
-int cryptoManager_GetChannelKdfKey(const channel_id_t channel, const uint8_t **ppKey){
+int cryptoManager_GetChannelKdfInputKey(const channel_id_t channel, const uint8_t **ppKey){
     return secrets_get_channel_kdf_key(channel, ppKey);
+}
+
+int cryptoManager_GetFlashKdfInputKey(const uint8_t **ppKey){
+    return secrets_get_flash_kdf_input_key(ppKey);
 }
 
 QueueHandle_t cryptoManager_RequestQueue(void){

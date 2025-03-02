@@ -80,6 +80,15 @@ def gen_secrets(channels: list[int]) -> bytes:
         AES_KEY_LEN_BYTE, byteorder="little"
     )
 
+    # Generate flash key for KDF and flash kdf input key
+    # - Random 256 bit numbers
+    flash_kdf_key = random.getrandbits(AES_KEY_LEN_BIT).to_bytes(
+        AES_KEY_LEN_BYTE, byteorder="little"
+    )
+    flash_kdf_input_key = random.getrandbits(AES_KEY_LEN_BIT).to_bytes(
+        AES_KEY_LEN_BYTE, byteorder="little"
+    )
+
     # Generate channel secrets
     # - Random random 256 bit keys for each channel
     channel_keys = [random.getrandbits(AES_KEY_LEN_BIT).to_bytes(
@@ -97,7 +106,9 @@ def gen_secrets(channels: list[int]) -> bytes:
         f"Secrets: {{"
             f"Subscription KDF Key: 0x{subscription_kdf_key.hex()}, "
             f"Subscription Cypher Auth Tag: 0x{subscription_cypher_auth_tag.hex()}, "
-            f"Frame KDF Key: 0x{frame_kdf_key.hex()}', "  
+            f"Frame KDF Key: 0x{frame_kdf_key.hex()}', "
+            f"Flash KDF Key: 0x{flash_kdf_key.hex()}', "  
+            f"Flash KDF Input Key: 0x{flash_kdf_input_key.hex()}', "  
             f"Channel Secrets: [{', '.join(channel_key_pairs)}]"
         f"}}"
     )
@@ -106,14 +117,18 @@ def gen_secrets(channels: list[int]) -> bytes:
     # [0]: Subscription KDF key (32 Bytes)
     # [32]: Subscription cypher authentication key (16 Bytes)
     # [48]: Frame KDF key (32 Bytes)
-    # [80]: Number of channels (2 Bytes)
-    # [82]: Channel IDs (4 Bytes each)
-    # [82 + 4*NumChannels]: Keys for each channel (32 Bytes each)
+    # [80]: Flash KDF key (32 Bytes)
+    # [112]: Flash KDF input key (32 Bytes)
+    # [144]: Number of channels (2 Bytes)
+    # [146]: Channel IDs (4 Bytes each)
+    # [146 + 4*NumChannels]: Keys for each channel (32 Bytes each)
     secrets = struct.pack(
-        f"<32s16s32sH{len(channels)}I{len(channels) * 32}s",
+        f"<32s16s32s32s32sH{len(channels)}I{len(channels)*32}s",
         subscription_kdf_key,           # Subscription KDF key (32 Bytes)
         subscription_cypher_auth_tag,   # Subscription Cypher Auth Tag (16 Bytes)
         frame_kdf_key,                  # Frame KDF key (32 Bytes)
+        flash_kdf_key,                  # Flash KDF key (32 Bytes)
+        flash_kdf_input_key,            # Flash KDF input key (32 bytes)
         len(channels),                  # Number of channels (2 Bytes)
         *channels,                      # Channels (4 Bytes each)
         b"".join(channel_keys)          # Concatenate all channel keys (32 Bytes each)

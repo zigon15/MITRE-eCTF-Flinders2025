@@ -12,6 +12,7 @@
 #include "lp.h"
 #include "led.h"
 #include "icc.h"
+#include "trng.h"
 #include "board.h"
 #include "mxc_delay.h"
 
@@ -66,6 +67,8 @@ int main(void){
 
     // Enable instruction cache for better performance
     MXC_ICC_Enable(MXC_ICC0);
+
+    MXC_TRNG_Init();
     
     // Print banner (RTOS scheduler not running)
     // printf("\n-=- %s FreeRTOS (%s) Demo -=-\n", STRING(TARGET), tskKERNEL_VERSION_NUMBER);

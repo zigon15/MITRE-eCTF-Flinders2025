@@ -14,7 +14,7 @@
 //----- Private Constants -----//
 #define FRAME_KDF_DATA_LENGTH 32
 #define FRAME_KDF_CHANNEL_KEY_LEN 18
-#define FRAME_KDF_CHANNEL_KEY_OFFSET (CHANNEL_KDF_KEY_LEN - FRAME_KDF_CHANNEL_KEY_LEN)
+#define FRAME_KDF_CHANNEL_KEY_OFFSET (CHANNEL_KDF_INPUT_KEY_LEN - FRAME_KDF_CHANNEL_KEY_LEN)
 
 #define CTR_NONCE_RAND_LEN 12
 
@@ -151,7 +151,7 @@ static int _assembleKdfData(
     // Set channel key 
     // Byte offset: 2
     const uint8_t *pChannelKdfKey;
-    res = cryptoManager_GetChannelKdfKey(pFramePacket->channel, &pChannelKdfKey);
+    res = cryptoManager_GetChannelKdfInputKey(pFramePacket->channel, &pChannelKdfKey);
     if(res != 0){
         // printf("-{E} Failed to find Channel KDF key for Channel %u!!\n", channel);
         // printf("-FAIL\n");
@@ -200,7 +200,7 @@ static int _checkMic(
     CryptoManager_SignatureCheck cryptoSigCheck;
 
     //-- Assemble KDF Data
-    cryptoSigCheck.kdfData.keySource = FRAME_KDF_KEY;
+    cryptoSigCheck.kdfData.keySource = KEY_SOURCE_FRAME_KDF;
     cryptoSigCheck.kdfData.length = sizeof(frame_kdf_data_t);
 
     // Allocate stack buffer space for 
@@ -263,7 +263,7 @@ static int _decryptData(
     CryptoManager_DecryptData cryptoDecrypt;
 
     //-- Assemble KDF Data
-    cryptoDecrypt.kdfData.keySource = FRAME_KDF_KEY;
+    cryptoDecrypt.kdfData.keySource = KEY_SOURCE_FRAME_KDF;
     cryptoDecrypt.kdfData.length = sizeof(frame_kdf_data_t);
 
     // Allocate stack buffer space for 

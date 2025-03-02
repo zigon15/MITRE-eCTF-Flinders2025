@@ -24,9 +24,11 @@
 #define SUBSCRIPTION_KDF_KEY_LEN 32
 #define SUBSCRIPTION_CIPHER_AUTH_TAG_LEN 16
 #define FRAME_KDF_KEY_LEN 32
+#define FLASH_KDF_KEY_LEN 32
+#define FLASH_KDF_INPUT_KEY_LEN 32
 #define CHANNEL_NUM_LEN 2
 #define CHANNEL_LEN 4
-#define CHANNEL_KDF_KEY_LEN 32
+#define CHANNEL_KDF_INPUT_KEY_LEN 32
 
 /******************************** PUBLIC FUNCTION PROTOTYPES ********************************/
 
@@ -60,6 +62,23 @@ int secrets_get_subscription_cipher_auth_tag(const uint8_t **ppCipherAuthTag);
  *  @return 0 upon success, 1 if error.
 */
 int secrets_get_frame_kdf_key(const uint8_t **ppKey);
+
+/** @brief Updates the given pointer to point to the flash KDF key.
+ * 
+ * @param ppKey Set to point to the flash KDF key.
+ * 
+ *  @return 0 upon success, 1 if error.
+*/
+int secrets_get_flash_kdf_key(const uint8_t **ppKey);
+
+
+/** @brief Updates the given pointer to point to the flash KDF input key.
+ * 
+ * @param ppKey Set to point to the flash KDF input key.
+ * 
+ *  @return 0 upon success, 1 if error.
+*/
+int secrets_get_flash_kdf_input_key(const uint8_t **ppKey);
 
 /** @brief Checks if the given channel is valid in the current deployment.
  * 

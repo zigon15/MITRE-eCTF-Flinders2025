@@ -70,7 +70,7 @@ static int _assembleKdfData(
     // Set channel key 
     // Byte offset: 1
     const uint8_t *pChannelKdfKey;
-    res = cryptoManager_GetChannelKdfKey(pSubscriptionPacket->channel, &pChannelKdfKey);
+    res = cryptoManager_GetChannelKdfInputKey(pSubscriptionPacket->channel, &pChannelKdfKey);
     if(res != 0){
         // printf("-{E} Failed to find Channel KDF key for Channel %u!!\n", channel);
         // printf("-FAIL\n");
@@ -114,7 +114,7 @@ static int _checkMic(
     CryptoManager_SignatureCheck cryptoSigCheck;
 
     //-- Assemble KDF Data
-    cryptoSigCheck.kdfData.keySource = SUBSCRIPTION_KDF_KEY;
+    cryptoSigCheck.kdfData.keySource = KEY_SOURCE_SUBSCRIPTION_KDF;
     cryptoSigCheck.kdfData.length = sizeof(subscription_kdf_data_t);
 
     // Allocate stack buffer space for 
@@ -205,7 +205,7 @@ static int _decryptData(
     CryptoManager_DecryptData cryptoDecrypt;
 
     //-- Assemble KDF Data
-    cryptoDecrypt.kdfData.keySource = SUBSCRIPTION_KDF_KEY;
+    cryptoDecrypt.kdfData.keySource = KEY_SOURCE_SUBSCRIPTION_KDF;
     cryptoDecrypt.kdfData.length = sizeof(subscription_kdf_data_t);
 
     // Allocate stack buffer space for 

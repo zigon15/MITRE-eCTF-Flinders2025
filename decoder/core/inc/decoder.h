@@ -32,18 +32,6 @@
  #define decoder_id_t uint32_t
  #define pkt_len_t uint16_t
  
- typedef struct {
-     bool active;
-     channel_id_t id;
-     timestamp_t start_timestamp;
-     timestamp_t end_timestamp;
- } channel_status_t;
- 
- typedef struct {
-     uint32_t first_boot; // if set to FLASH_FIRST_BOOT, device has booted before.
-     channel_status_t subscribed_channels[MAX_CHANNEL_COUNT];
- } flash_entry_t;
- 
  typedef struct __attribute__((packed)) {
     channel_id_t channel;
     timestamp_t start;
@@ -54,9 +42,6 @@
     uint32_t n_channels;
     channel_info_t channel_info[MAX_CHANNEL_COUNT];
 } list_response_t;
-
- /******************************** PUBLIC VARIABLES ********************************/
- extern flash_entry_t decoder_status;
  
  #endif
  

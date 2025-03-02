@@ -13,19 +13,21 @@
 // [82]: First channel in deployment (2 bytes)
 // [84]: Channel KDF key (32 bytes)
 // 32 + 16 + 32 + 2 + 2 + 32 -> 116 bytes
-#define GLOBAL_SECRETS_MIN_SIZE (SUBSCRIPTION_KDF_KEY_LEN + SUBSCRIPTION_CIPHER_AUTH_TAG_LEN + FRAME_KDF_KEY_LEN + 2 + (2 + CHANNEL_KDF_KEY_LEN))
+#define GLOBAL_SECRETS_MIN_SIZE (SUBSCRIPTION_KDF_KEY_LEN + SUBSCRIPTION_CIPHER_AUTH_TAG_LEN + FRAME_KDF_KEY_LEN + FLASH_KDF_KEY_LEN + FLASH_KDF_INPUT_KEY_LEN + CHANNEL_NUM_LEN + (CHANNEL_LEN + CHANNEL_KDF_INPUT_KEY_LEN))
 
 // Definitions for byte offset of the global secrets variables stored in flash
 #define SUBSCRIPTION_KDF_KEY_OFFSET         (0)
 #define SUBSCRIPTION_CIPHER_AUTH_TAG_OFFSET (SUBSCRIPTION_KDF_KEY_OFFSET + SUBSCRIPTION_KDF_KEY_LEN)
 #define FRAME_KDF_KEY_OFFSET                (SUBSCRIPTION_CIPHER_AUTH_TAG_OFFSET + SUBSCRIPTION_CIPHER_AUTH_TAG_LEN)
-#define NUM_CHANNELS_OFFSET                 (FRAME_KDF_KEY_OFFSET + FRAME_KDF_KEY_LEN)
-#define CHANNEL_INFO_OFFSET                 (NUM_CHANNELS_OFFSET + 2)
+#define FLASH_KDF_KEY_OFFSET                (FRAME_KDF_KEY_OFFSET + FRAME_KDF_KEY_LEN)
+#define FLASH_KDF_INPUT_KEY_OFFSET          (FLASH_KDF_KEY_OFFSET + FLASH_KDF_KEY_LEN)
+#define NUM_CHANNELS_OFFSET                 (FLASH_KDF_INPUT_KEY_OFFSET + FRAME_KDF_KEY_LEN)
+#define CHANNEL_INFO_OFFSET                 (NUM_CHANNELS_OFFSET + CHANNEL_NUM_LEN)
 
 /******************************** PRIVATE TYPES ********************************/
 typedef struct __attribute__((packed)) {
     channel_id_t channel;
-    uint8_t pKey[CHANNEL_KDF_KEY_LEN];
+    uint8_t pKey[CHANNEL_KDF_INPUT_KEY_LEN];
 } channel_key_pair_t;
 
 /******************************** EXTERN VARIABLES ********************************/
@@ -46,7 +48,11 @@ static size_t _numChannels = 0;
  * @return Expected length of the global secrets given that it contains "numChannels" channels
 */
 static uint32_t _num_channels_to_length(const size_t numChannels){
-    return SUBSCRIPTION_KDF_KEY_LEN + SUBSCRIPTION_CIPHER_AUTH_TAG_LEN + FRAME_KDF_KEY_LEN + CHANNEL_NUM_LEN + numChannels*(CHANNEL_LEN + CHANNEL_KDF_KEY_LEN);
+    return (
+        SUBSCRIPTION_KDF_KEY_LEN + SUBSCRIPTION_CIPHER_AUTH_TAG_LEN + FRAME_KDF_KEY_LEN + 
+        FLASH_KDF_KEY_LEN + FLASH_KDF_INPUT_KEY_LEN + 
+        CHANNEL_NUM_LEN + numChannels*(CHANNEL_LEN + CHANNEL_KDF_INPUT_KEY_LEN)
+    );
 }
 
 /** @brief Finds the specified channel in the current deployment 
@@ -69,7 +75,7 @@ static int _find_channel_info(
     for(size_t i = 0; i < _numChannels; i++){
         channel_id_t foundChannel = *(channel_id_t*)(secrets_bin_start + CHANNEL_INFO_OFFSET + i*CHANNEL_LEN);
         if(channel == foundChannel){
-            *ppKey = secrets_bin_start + CHANNEL_INFO_OFFSET + _numChannels*CHANNEL_LEN + i*CHANNEL_KDF_KEY_LEN;
+            *ppKey = secrets_bin_start + CHANNEL_INFO_OFFSET + _numChannels*CHANNEL_LEN + i*CHANNEL_KDF_INPUT_KEY_LEN;
             return 0;
         }
     }
@@ -111,7 +117,7 @@ static int _find_channel_info(
 //             "-[%u] Channel: %u, Key: ", 
 //             i, *pChannel
 //         );
-//         crypto_print_hex(pChannelKey, CHANNEL_KDF_KEY_LEN);
+//         crypto_print_hex(pChannelKey, CHANNEL_KDF_INPUT_KEY_LEN);
 //     }
 // }
 
@@ -211,6 +217,38 @@ int secrets_get_frame_kdf_key(const uint8_t **ppKey){
     return 0;
 }
 
+/** @brief Updates the given pointer to point to the flash KDF key.
+ * 
+ * @param ppKey Set to point to the flash KDF key.
+ * 
+ *  @return 0 upon success, 1 if error.
+*/
+int secrets_get_flash_kdf_key(const uint8_t **ppKey){
+    // Ensure secrets are valid
+    if(_globalSecretsValid == 0){
+        return 1;
+    }
+
+    *ppKey = secrets_bin_start + FLASH_KDF_KEY_OFFSET;
+    return 0;
+}
+
+/** @brief Updates the given pointer to point to the flash KDF input key.
+ * 
+ * @param ppKey Set to point to the flash KDF input key.
+ * 
+ *  @return 0 upon success, 1 if error.
+*/
+int secrets_get_flash_kdf_input_key(const uint8_t **ppKey){
+    // Ensure secrets are valid
+    if(_globalSecretsValid == 0){
+        return 1;
+    }
+
+    *ppKey = secrets_bin_start + FLASH_KDF_INPUT_KEY_OFFSET;
+    return 0;
+}
+
 /** @brief Checks if the given channel is valid in the current deployment.
  * 
  * @param channel Channel to check if is valid.
@@ -270,6 +308,6 @@ int secrets_get_channel_info(
     }
 
     *ppChannel = (channel_id_t*)(secrets_bin_start + CHANNEL_INFO_OFFSET + idx*CHANNEL_LEN);
-    *ppKey = secrets_bin_start + CHANNEL_INFO_OFFSET + _numChannels*CHANNEL_LEN + idx*CHANNEL_KDF_KEY_LEN;
+    *ppKey = secrets_bin_start + CHANNEL_INFO_OFFSET + _numChannels*CHANNEL_LEN + idx*CHANNEL_KDF_INPUT_KEY_LEN;
     return 0;
 }
