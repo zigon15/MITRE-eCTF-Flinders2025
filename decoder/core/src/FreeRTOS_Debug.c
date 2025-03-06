@@ -98,10 +98,10 @@ void prvGetRegistersFromStack(uint32_t *pulFaultStackAddress)
     for (;;) {}
 }
 
-void vApplicationStackOverflowHook(TaskHandle_t xTask, signed char *pcTaskName)
-{
-    for (;;) {}
-}
+// void vApplicationStackOverflowHook(TaskHandle_t xTask, signed char *pcTaskName)
+// {
+//     for (;;) {}
+// }
 
 /* The prototype shows it is a naked function - in effect this is just an
 assembly function. */

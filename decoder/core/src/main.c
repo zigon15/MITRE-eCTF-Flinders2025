@@ -45,6 +45,8 @@
 #include "channel_manager.h"
 #include "frame_manager.h"
 
+#include "failsafe.h"
+
 /* =================================================================
 Configuration items 
 ================================================================= */
@@ -64,6 +66,34 @@ TaskHandle_t subscription_manager_task_id;
 TaskHandle_t serial_interface_manager_task_id;
 TaskHandle_t channel_manager_task_id;
 TaskHandle_t frame_manager_task_id;
+
+/** @brief Called if stack smashing is detected
+ *
+*/
+__attribute__((noreturn)) void __wrap___stack_chk_fail(void) {
+    STATUS_LED_RED();
+    printf("Stack Smashing Detected :(\n");
+    printf("Reseting :(\n");
+
+    // Wait for serial to flush then reset
+    MXC_Delay(1000000);
+    NVIC_SystemReset();
+    while(1);
+}
+
+/** @brief Called by default fortify failure handler if buffer overflow is detected
+ *
+*/
+__attribute__((noreturn)) void __wrap___chk_fail(void) {
+    STATUS_LED_RED();
+    printf("Buffer Overflow (I think?!?!) [https://github.dev/lattera/glibc/blob/master/debug/chk_fail.c]\n");
+    printf("Reseting :(\n");
+
+    // Wait for serial to flush then reset
+    MXC_Delay(1000000);
+    NVIC_SystemReset();
+    while(1);
+}
 
 /* =| main |==============================================
  * =====================================================*/
