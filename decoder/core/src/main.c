@@ -44,7 +44,7 @@
 #include "serial_interface_manager.h"
 #include "channel_manager.h"
 #include "frame_manager.h"
-
+#include "security_test.h"
 #include "failsafe.h"
 
 /* =================================================================
