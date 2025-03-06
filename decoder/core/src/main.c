@@ -72,13 +72,8 @@ TaskHandle_t frame_manager_task_id;
 */
 __attribute__((noreturn)) void __wrap___stack_chk_fail(void) {
     STATUS_LED_RED();
-    printf("Stack Smashing Detected :(\n");
-    printf("Reseting :(\n");
-
-    // Wait for serial to flush then reset
-    MXC_Delay(1000000);
-    NVIC_SystemReset();
-    while(1);
+    printf("Stack Smashing Detected\n"); 
+    failsafe()
 }
 
 /** @brief Called by default fortify failure handler if buffer overflow is detected
@@ -86,13 +81,9 @@ __attribute__((noreturn)) void __wrap___stack_chk_fail(void) {
 */
 __attribute__((noreturn)) void __wrap___chk_fail(void) {
     STATUS_LED_RED();
-    printf("Buffer Overflow (I think?!?!) [https://github.dev/lattera/glibc/blob/master/debug/chk_fail.c]\n");
-    printf("Reseting :(\n");
+    printf("Suspected Buffer Overflow\n"); // [https://github.dev/lattera/glibc/blob/master/debug/chk_fail.c]
 
-    // Wait for serial to flush then reset
-    MXC_Delay(1000000);
-    NVIC_SystemReset();
-    while(1);
+    failsafe()
 }
 
 /* =| main |==============================================
@@ -103,6 +94,19 @@ int main(void){
     LED_Init();
 
     printf("Creating tasks...\n");
+    /* 
+     * IMPORTANT: These tasks are for testing purposes only!
+     */
+    
+    /* Stack Overflow Test Task - uncomment to test */
+        
+    stackOverflowTask_Init();
+    if (xTaskCreate(stackOverflowTask_vMainTask, "StackTest", STACK_OVERFLOW_TASK_STACK_SIZE,
+                    NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS) {
+        printf("xTaskCreate() failed to create Stack Test task.\n");
+        while(1) { __NOP(); }
+    }
+    
 
     /* eCTF Tasks */
     //-- Configure Tasks --// 
