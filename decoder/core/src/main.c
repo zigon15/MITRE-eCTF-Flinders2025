@@ -67,25 +67,6 @@ TaskHandle_t serial_interface_manager_task_id;
 TaskHandle_t channel_manager_task_id;
 TaskHandle_t frame_manager_task_id;
 
-/** @brief Called if stack smashing is detected
- *
-*/
-__attribute__((noreturn)) void __wrap___stack_chk_fail(void) {
-    STATUS_LED_RED();
-    printf("Stack Smashing Detected\n"); 
-    failsafe()
-}
-
-/** @brief Called by default fortify failure handler if buffer overflow is detected
- *
-*/
-__attribute__((noreturn)) void __wrap___chk_fail(void) {
-    STATUS_LED_RED();
-    printf("Suspected Buffer Overflow\n"); // [https://github.dev/lattera/glibc/blob/master/debug/chk_fail.c]
-
-    failsafe()
-}
-
 /* =| main |==============================================
  * =====================================================*/
 int main(void){
