@@ -376,7 +376,7 @@ void cryptoManager_Init(void){
  * @param pvParameters FreeRTOS task parameters
  */
 void cryptoManager_vMainTask(void *pvParameters){
-    secrets_init();
+    // secrets_init();
 
     CryptoManager_Request cryptoRequest;
 

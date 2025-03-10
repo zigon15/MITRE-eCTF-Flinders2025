@@ -47,7 +47,7 @@ void failsafe(void)
 void system_reset(const char *message)
 {
     /* Visual indication - set red LED on */
-        STATUS_LED_ERROR();
+    STATUS_LED_ERROR();
 
     /* Log the error message */
     if (message != NULL) {

@@ -26,7 +26,7 @@ void vApplicationMallocFailedHook(void)
 
 /* Called if stack overflow is detected during context switch */
 void vApplicationStackOverflowHook(TaskHandle_t pxTask, char *pcTaskName)
-{
+{   
     /* Log the stack overflow */
     char stackMessage[127] = "Stack overflow! System attempting to reset.\n";
     system_reset(stackMessage);
@@ -34,9 +34,6 @@ void vApplicationStackOverflowHook(TaskHandle_t pxTask, char *pcTaskName)
 
 /* Called when a daemon task is created */
 void vApplicationDaemonTaskStartupHook(void) {
-    // Initialize true random number generator for delay timer
-    MXC_TRNG_Init();
-
     // Measure boot delay
     mxc_tmr_cfg_t tmr_cfg;
     tmr_cfg.pres = TMR_PRES_1;

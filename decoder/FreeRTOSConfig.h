@@ -1,9 +1,23 @@
 #ifndef FLINDERS_FREERTOSCONFIG_H_
 #define FLINDERS_FREERTOSCONFIG_H_
-
+ 
 #include <stdint.h>
+#include <stdio.h>
 #include "max78000.h"
-
+ 
+// MSDK Debug flags
+#if defined(FRTOS_DEBUG) && FRTOS_DEBUG == 1
+  #warning "FreeRTOS Debug Build!!"
+  
+  // RTOS Assert & other debug configuration
+  #define configASSERT(x)           \
+      if ((x) == 0) {               \
+          taskDISABLE_INTERRUPTS(); \
+          for (;;) {printf("@ERROR ASSERT!!\n");} \
+      }
+  #define configRECORD_STACK_HIGH_ADDRESS 1
+#endif
+ 
 // Modes
 #define configUSE_PREEMPTION                                        1
 #define configUSE_PORT_OPTIMISED_TASK_SELECTION                     0
@@ -28,7 +42,7 @@
 #define configUSE_COUNTING_SEMAPHORES                               0
 #define configQUEUE_REGISTRY_SIZE                                   10
 #define configUSE_QUEUE_SETS                                        0
-#define configUSE_TIME_SLICING                                      0
+#define configUSE_TIME_SLICING                                      1 // CHANGED!!
 #define configUSE_NEWLIB_REENTRANT                                  0
 #define configENABLE_BACKWARD_COMPATIBILITY                         1
 #define configNUM_THREAD_LOCAL_STORAGE_POINTERS                     5
@@ -44,7 +58,7 @@
 // Memory allocation
 #define configSUPPORT_STATIC_ALLOCATION                             1
 #define configSUPPORT_DYNAMIC_ALLOCATION                            1
-#define configTOTAL_HEAP_SIZE                                       ((size_t)(26 * 1024))
+#define configTOTAL_HEAP_SIZE                                       ((size_t)(64 * 1024))
 #define configAPPLICATION_ALLOCATED_HEAP                            1
 #define configSTACK_ALLOCATION_FROM_SEPARATE_HEAP                   0
 
@@ -65,18 +79,11 @@
 #define configTIMER_TASK_PRIORITY                           3
 #define configTIMER_QUEUE_LENGTH                            10
 #define configTIMER_TASK_STACK_DEPTH                        (configMINIMAL_STACK_SIZE * 10)
-
-// Interrupt nesting behaviour
-#define configKERNEL_INTERRUPT_PRIORITY         ((unsigned char)7 << (8 - configPRIO_BITS))
-#define configMAX_SYSCALL_INTERRUPT_PRIORITY    ((unsigned char)5 << (8 - configPRIO_BITS))
-
-// RTOS Assert & other debug configuration
-#define configASSERT(x)           \
-    if ((x) == 0) {               \
-        taskDISABLE_INTERRUPTS(); \
-        for (;;) {}               \
-    }
-
+ 
+/* Run time and task stats gathering related definitions. */
+#define configUSE_TRACE_FACILITY 1
+#define configUSE_STATS_FORMATTING_FUNCTIONS 1
+ 
 // Optional functions - most linkers will remove unused functions anyway.
 #define INCLUDE_vTaskPrioritySet                1
 #define INCLUDE_uxTaskPriorityGet               1
@@ -94,35 +101,33 @@
 #define INCLUDE_xTaskAbortDelay                 0
 #define INCLUDE_xTaskGetHandle                  0
 #define INCLUDE_xTaskResumeFromISR              1
-
+ 
 /// Necessary MAX78000 definitions ///
-/* # of priority bits (configured in hardware) is provided by CMSIS */
-#define configPRIO_BITS __NVIC_PRIO_BITS
-
-/* Priority 7, or 255 as only the top three bits are implemented.  This is the lowest priority. */
-#define configKERNEL_INTERRUPT_PRIORITY ((unsigned char)7 << (8 - configPRIO_BITS))
-
-/* Priority 5, or 160 as only the top three bits are implemented. */
-#define configMAX_SYSCALL_INTERRUPT_PRIORITY ((unsigned char)5 << (8 - configPRIO_BITS))
-
-/* Alias the default handler names to match CMSIS weak symbols */
-#define vPortSVCHandler SVC_Handler
-#define xPortPendSVHandler PendSV_Handler
-#define xPortSysTickHandler SysTick_Handler
-
-#ifdef configUSE_TICKLESS_IDLE
-/* Provide routines for tickless idle pre- and post- processing */
-void vPreSleepProcessing(uint32_t *);
-void vPostSleepProcessing(uint32_t);
-#define configPRE_SLEEP_PROCESSING(idletime) vPreSleepProcessing(&idletime);
-#define configPOST_SLEEP_PROCESSING(idletime) vPostSleepProcessing(idletime);
-#endif
-
-/* FreeRTOS+CLI requires this size to be defined, but we do not use it */
-#define configCOMMAND_INT_MAX_OUTPUT_SIZE 1
-
-
-
-#endif /* FLINDERS_FREERTOS_CONFIG_H */
+ /* # of priority bits (configured in hardware) is provided by CMSIS */
+ #define configPRIO_BITS __NVIC_PRIO_BITS
+ 
+ /* Priority 7, or 255 as only the top three bits are implemented.  This is the lowest priority. */
+ #define configKERNEL_INTERRUPT_PRIORITY ((unsigned char)7 << (8 - configPRIO_BITS))
+ 
+ /* Priority 5, or 160 as only the top three bits are implemented. */
+ #define configMAX_SYSCALL_INTERRUPT_PRIORITY ((unsigned char)5 << (8 - configPRIO_BITS))
+ 
+ /* Alias the default handler names to match CMSIS weak symbols */
+ #define vPortSVCHandler SVC_Handler
+ #define xPortPendSVHandler PendSV_Handler
+ #define xPortSysTickHandler SysTick_Handler
+ 
+ #ifdef configUSE_TICKLESS_IDLE
+ /* Provide routines for tickless idle pre- and post- processing */
+ void vPreSleepProcessing(uint32_t *);
+ void vPostSleepProcessing(uint32_t);
+ #define configPRE_SLEEP_PROCESSING(idletime) vPreSleepProcessing(&idletime);
+ #define configPOST_SLEEP_PROCESSING(idletime) vPostSleepProcessing(idletime);
+ #endif
+ 
+ /* FreeRTOS+CLI requires this size to be defined, but we do not use it */
+ #define configCOMMAND_INT_MAX_OUTPUT_SIZE 1
 
 
+
+ #endif /* FLINDERS_FREERTOS_CONFIG_H */

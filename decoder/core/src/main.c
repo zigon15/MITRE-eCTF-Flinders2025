@@ -67,12 +67,59 @@ TaskHandle_t serial_interface_manager_task_id;
 TaskHandle_t channel_manager_task_id;
 TaskHandle_t frame_manager_task_id;
 
+/** @brief Called if stack smashing is detected
+ *
+*/
+__attribute__((noreturn)) void __wrap___stack_chk_fail(void) {
+    STATUS_LED_RED();
+    printf("Stack Smashing Detected :(\n");
+    printf("Reseting :(\n");
+
+    // Wait for serial to flush then reset
+    MXC_Delay(1000000);
+    NVIC_SystemReset();
+    while(1);
+}
+
+/** @brief Called by default fortify failure handler if buffer overflow is detected
+ *
+*/
+__attribute__((noreturn)) void __wrap___chk_fail(void) {
+    STATUS_LED_RED();
+    printf("Buffer Overflow (I think?!?!) [https://github.dev/lattera/glibc/blob/master/debug/chk_fail.c]\n");
+    printf("Reseting :(\n");
+
+    // Wait for serial to flush then reset
+    MXC_Delay(1000000);
+    NVIC_SystemReset();
+    while(1);
+}
+
+/** @brief Used to ensure there are context switches to check stack overflows
+ * 
+ * @param pvParameters FreeRTOS task parameters
+ */
+void contextSwitch_vMainTask(void *pvParameters){
+    while (1){
+        vTaskDelay(pdMS_TO_TICKS(1));
+    }
+}
+
 /* =| main |==============================================
  * =====================================================*/
 int main(void){
+    int ret;
 
     Board_Init();
     LED_Init();
+    
+    // Enable instruction cache for better performance
+    MXC_ICC_Enable(MXC_ICC0);
+
+    // Initialize true random number generator for 
+    // - delay timer
+    // - channel manager
+    MXC_TRNG_Init();
 
     printf("Creating tasks...\n");
     /* 
@@ -80,18 +127,27 @@ int main(void){
      */
     
     /* Stack Overflow Test Task - uncomment to test */
-        
-    stackOverflowTask_Init();
-    if (xTaskCreate(stackOverflowTask_vMainTask, "StackTest", STACK_OVERFLOW_TASK_STACK_SIZE,
-                    NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS) {
-        printf("xTaskCreate() failed to create Stack Test task.\n");
-        while(1) { __NOP(); }
-    }
+    // stackOverflowTask_Init();
+    // ret = xTaskCreate(
+    //     stackOverflowTask_vMainTask, "StackTest", STACK_OVERFLOW_TASK_STACK_SIZE,
+    //     NULL, tskIDLE_PRIORITY+1, NULL
+    // );
+    // if (ret != pdPASS) {
+    //     printf("xTaskCreate() failed to create Stack Test task.\n");
+    //     while(1);
+    // }
     
+    ret = xTaskCreate(
+        contextSwitch_vMainTask, "ContextSwitch", configMINIMAL_STACK_SIZE,
+        NULL, tskIDLE_PRIORITY+5, NULL
+    );
+    if (ret != pdPASS) {
+        printf("xTaskCreate() failed to create Context Switch task.\n");
+        while(1);
+    }
 
     /* eCTF Tasks */
     //-- Configure Tasks --// 
-    int ret;
     
     // Crypto Manager task
     cryptoManager_Init();

@@ -23,7 +23,7 @@
 //----- Public Constants -----//
 
 // FreeRTOS stack size for Crypto Manager
-#define CRYPTO_MANAGER_STACK_SIZE 4096
+#define CRYPTO_MANAGER_STACK_SIZE 2048
 
 #define CRYPTO_MANAGER_MIC_LEN  CRYPTO_CMAC_OUTPUT_SIZE
 #define CRYPTO_MANAGER_NONCE_LEN  (CRYPTO_AES_BLOCK_SIZE_BYTE)

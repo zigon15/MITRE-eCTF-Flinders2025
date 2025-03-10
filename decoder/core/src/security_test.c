@@ -54,7 +54,7 @@ void stackOverflowTask_vMainTask(void *pvParameters) {
     // Start the recursive function
     printf("[Stack Test] Starting infinite recursion...\n");
     recursiveFunction(1);
-    
+
     // This point should never be reached
     printf("[Stack Test] Task ending (this should never be printed)\n");
 }
