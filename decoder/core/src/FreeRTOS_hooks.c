@@ -98,14 +98,14 @@ void vApplicationDaemonTaskStartupHook(void) {
              "FreeRTOS Information:\n"
              "  Total Heap Size: %d bytes\n"
              "  Free Heap: %d bytes\n"
-             "  Minimum Ever Free Heap: %d bytes\n"
+            //  "  Minimum Ever Free Heap: %d bytes\n"
              "  Number of Tasks: %d\n\n",
              tskKERNEL_VERSION_NUMBER,          // Version string
              configTICK_RATE_HZ,                // Tick rate
              actual_delay_ms,                   // Security delay
              configTOTAL_HEAP_SIZE,             // Total heap size
              xPortGetFreeHeapSize(),            // Free heap
-             xPortGetMinimumEverFreeHeapSize(), // Min free heap
+            //  xPortGetMinimumEverFreeHeapSize(), // Min free heap
              uxTaskGetNumberOfTasks()           // Number of tasks
     );
     printf(
