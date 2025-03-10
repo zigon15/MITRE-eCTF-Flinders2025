@@ -150,7 +150,6 @@ int main(void){
     //-- Configure Tasks --// 
     
     // Crypto Manager task
-    cryptoManager_Init();
     ret = xTaskCreate(
         cryptoManager_vMainTask, (const char *)"CryptoManager",
         CRYPTO_MANAGER_STACK_SIZE, NULL,
@@ -162,7 +161,6 @@ int main(void){
     }
 
     // Subscription Manager task
-    subscriptionManager_Init();
     ret = xTaskCreate(
         subscriptionManager_vMainTask, (const char *)"SubscriptionManager",
         SUBSCRIPTION_MANAGER_STACK_SIZE, NULL,
@@ -174,7 +172,6 @@ int main(void){
     }
 
     // Serial Interface Manager task
-    serialInterfaceManager_Init();
     ret = xTaskCreate(
         serialInterfaceManager_vMainTask, (const char *)"SerialInterfaceManager",
         SERIAL_INTERFACE_MANAGER_STACK_SIZE, NULL,
@@ -186,7 +183,6 @@ int main(void){
     }
 
     // Channel Manager task
-    channelManager_Init();
     ret = xTaskCreate(
         channelManager_vMainTask, (const char *)"ChannelManager",
         CHANNEL_MANAGER_STACK_SIZE, NULL,
@@ -198,7 +194,6 @@ int main(void){
     }
 
     // Frame Manager task
-    frameManager_Init();
     ret = xTaskCreate(
         frameManager_vMainTask, (const char *)"FrameManager",
         FRAME_MANAGER_STACK_SIZE, NULL,

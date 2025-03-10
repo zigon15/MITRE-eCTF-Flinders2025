@@ -13,6 +13,13 @@
 #include "tmr.h"
 #include "failsafe.h"
 
+// Include tasks
+#include "crypto_manager.h"
+#include "subscription_manager.h"
+#include "serial_interface_manager.h"
+#include "channel_manager.h"
+#include "frame_manager.h"
+
 /* Required for heap_4.c */
 uint8_t ucHeap[configTOTAL_HEAP_SIZE];
 
@@ -70,6 +77,13 @@ void vApplicationDaemonTaskStartupHook(void) {
     // Create a buffer to hold the entire formatted string
     char task_list[1024];
     vTaskList(task_list);
+
+    // Initialize all required tasks
+    cryptoManager_Init();
+    subscriptionManager_Init();
+    serialInterfaceManager_Init();
+    channelManager_Init();
+    frameManager_Init();
 
     // Build the message in the buffer using snprintf
     printf(
