@@ -6,7 +6,7 @@
 #include "max78000.h"
  
 // MSDK Debug flags
-#if defined(FRTOS_DEBUG) && FRTOS_DEBUG == 0
+#if defined(FRTOS_DEBUG) && FRTOS_DEBUG == 1
   #warning "FreeRTOS Debug Build!!"
   
   // RTOS Assert & other debug configuration
